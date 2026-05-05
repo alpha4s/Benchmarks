@@ -278,6 +278,51 @@
         .dark-mode .btn-secondary:hover {
             background-color: rgba(255, 255, 255, 0.1);
         }
+
+        .playlist-chip {
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 150ms;
+            user-select: none;
+        }
+
+        .playlist-chip:hover {
+            transform: scale(1.05);
+        }
+
+        .playlist-chip:active {
+            transform: scale(0.95);
+        }
+
+        .playlist-queue-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 150ms;
+        }
+
+        .playlist-queue-item.active {
+            box-shadow: 0 0 0 2px var(--result-color);
+        }
+
+        #playlist-hud {
+            position: fixed;
+            top: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 60;
+            pointer-events: none;
+            transition: opacity 300ms;
+        }
     </style>
 </head>
 
@@ -308,6 +353,7 @@
                 <button class="nav-btn" data-target="displacement">Spatial</button>
                 <button class="nav-btn" data-target="projection">Projection</button>
                 <button class="nav-btn" data-target="cps">CPS</button>
+                <button class="nav-btn" data-target="playlist" style="opacity:0.6">▶ Playlist</button>
             </div>
 
             <div id="nav-memory"
@@ -723,6 +769,39 @@
     </div>
     </div>
 
+    <div id="view-playlist"
+        class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+        <div id="playlist-builder" class="w-full max-w-2xl px-8">
+            <h2 class="text-5xl font-light tracking-tight mb-3 text-center">Playlist</h2>
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8 text-center">Build your
+                sequence</p>
+            <div class="flex flex-wrap gap-2 justify-center mb-8" id="playlist-chips"></div>
+            <div id="playlist-queue" class="space-y-2 mb-6 max-h-[30vh] overflow-y-auto"></div>
+            <div class="flex justify-center gap-4 mb-6">
+                <button id="btn-clear-playlist" class="btn-secondary glass text-red-400">Clear</button>
+                <button id="btn-run-playlist" class="btn-primary glass">Run Playlist</button>
+            </div>
+            <div class="glass rounded-2xl p-4">
+                <div class="flex gap-2 mb-3">
+                    <input id="playlist-save-name" type="text" placeholder="Playlist name"
+                        class="flex-1 bg-transparent border-b border-slate-300 dark:border-slate-700 text-sm focus:outline-none focus:border-slate-500 dark:focus:border-slate-400 transition-colors px-1 py-1">
+                    <button id="btn-save-playlist" class="btn-secondary glass text-xs">Save</button>
+                </div>
+                <div id="saved-playlists" class="space-y-1 max-h-[15vh] overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="playlist-hud" class="opacity-0">
+        <div class="glass rounded-2xl px-6 py-3 flex items-center gap-4">
+            <span id="playlist-hud-label" class="text-xs font-bold uppercase tracking-widest text-slate-400">Round
+                1/5</span>
+            <span id="playlist-hud-test" class="text-sm font-bold">Reaction</span>
+            <button id="btn-cancel-playlist"
+                class="text-red-400 text-xs font-bold uppercase tracking-widest hover:text-red-500 pointer-events-auto">✕</button>
+        </div>
+    </div>
+
     <div class="grid grid-cols-2 gap-4">
         <div class="glass rounded-3xl p-6 transition-all duration-300 text-center">
             <p id="stat-1-label" class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Session
@@ -782,7 +861,8 @@
             'stroop': { title: 'Stroop Test', s1: 'Reaction', s2: 'Best Speed', unit: 'ms' },
             'schulte': { title: 'Schulte Table', s1: 'Completion', s2: 'Best Time', unit: 'ms' },
             'projection': { title: 'Motion Prediction', s1: 'Precision', s2: 'Best Pred', unit: 'ms' },
-            'cps': { title: 'Click Speed', s1: 'Average CPS', s2: 'Best CPS', unit: 'cps' }
+            'cps': { title: 'Click Speed', s1: 'Average CPS', s2: 'Best CPS', unit: 'cps' },
+            'playlist': { title: 'Playlist', s1: 'Round', s2: 'Total', unit: null }
         };
 
 
@@ -872,7 +952,8 @@
             'stroop': { scores: [] },
             'schulte': { scores: [] },
             'projection': { scores: [] },
-            'cps': { scores: [] }
+            'cps': { scores: [] },
+            'playlist': {}
         };
 
         function flashScreen() {
@@ -890,6 +971,7 @@
 
         function updateStatsUI() {
             const data = globalScores[currentMode];
+            if (!data || (!data.scores && data.level === undefined)) return;
             const cfg = viewConfig[currentMode];
             if (data.scores) {
                 const u = cfg.unit;
@@ -1034,6 +1116,25 @@
                 flashScreen();
                 globalScores.reaction.scores.push(time);
                 updateStatsUI();
+                // Playlist: auto-advance after showing result
+                if (playlistRunning) {
+                    playlistRxCount++;
+                    if (playlistRxCount >= PLAYLIST_RX_PER_ROUND) {
+                        setTimeout(() => {
+                            document.body.classList.remove('state-result');
+                            setRxUI('IDLE');
+                            rxState = 'IDLE';
+                            onPlaylistRoundComplete();
+                        }, 1000);
+                    } else {
+                        setTimeout(() => {
+                            rxState = 'IDLE';
+                            setRxUI('IDLE');
+                            document.body.classList.remove('state-result');
+                            viewReaction.dispatchEvent(new Event('mousedown'));
+                        }, 1200);
+                    }
+                }
             }
         });
 
@@ -1090,7 +1191,12 @@
             flashScreen();
             sfx.fail();
             clearTimeout(gameOverTimeout);
-            gameOverTimeout = setTimeout(() => { document.body.classList.remove('state-waiting'); if (cb) cb(); resetGameLogic(); }, delay);
+            gameOverTimeout = setTimeout(() => {
+                document.body.classList.remove('state-waiting');
+                if (cb) cb();
+                resetGameLogic();
+                if (playlistRunning) onPlaylistRoundComplete();
+            }, delay);
         }
 
         function levelUp(key) {
@@ -1594,7 +1700,6 @@
         function finishTypingTest() {
             clearInterval(typeWpmInterval);
             const timeSec = (performance.now() - typeStartTime) / 1000;
-            // Standard WPM: (characters/5) / (minutes elapsed)
             const wpm = Math.round((typeCurrentIdx / 5) / (timeSec / 60));
 
             globalScores.typing.scores.push(wpm);
@@ -1606,6 +1711,7 @@
             setTimeout(() => {
                 document.body.classList.remove('state-result');
                 resetGameLogic();
+                if (playlistRunning) onPlaylistRoundComplete();
             }, 1000);
         }
 
@@ -1634,6 +1740,7 @@
             setTimeout(() => {
                 document.body.classList.remove('state-result');
                 resetGameLogic();
+                if (playlistRunning) onPlaylistRoundComplete();
             }, 1500);
         }
 
@@ -2195,6 +2302,200 @@
                 projTimeout = setTimeout(startProjRound, 1500);
             }
         };
+
+        // ═══════════════════ PLAYLIST / SEQUENCE RUNNER ═══════════════════
+        const playlistTests = [
+            { id: 'reaction', name: 'Reaction' },
+            { id: 'aim', name: 'Aim' },
+            { id: 'tracking', name: 'Tracking' },
+            { id: 'displacement', name: 'Spatial' },
+            { id: 'stroop', name: 'Stroop' },
+            { id: 'schulte', name: 'Schulte' },
+            { id: 'projection', name: 'Projection' },
+            { id: 'cps', name: 'CPS' },
+        ];
+
+        let playlistQueue = []; // [{id, name, count}]
+        let playlistRunning = false;
+        let playlistIdx = 0; // index in flattened run order
+        let playlistRoundIdx = 0; // which round within current test
+        let playlistFlat = []; // flattened: [{id, name, roundNum, totalRounds}]
+        let playlistRxCount = 0; // reaction clicks counted in current round
+        const PLAYLIST_RX_PER_ROUND = 5;
+
+        const playlistChipsEl = $('playlist-chips');
+        const playlistQueueEl = $('playlist-queue');
+        const playlistHud = $('playlist-hud');
+        const playlistHudLabel = $('playlist-hud-label');
+        const playlistHudTest = $('playlist-hud-test');
+
+        // Build the chip buttons
+        playlistTests.forEach(t => {
+            const chip = document.createElement('button');
+            chip.className = 'playlist-chip glass';
+            chip.innerText = t.name;
+            chip.onclick = () => {
+                const existing = playlistQueue.find(q => q.id === t.id);
+                if (existing) existing.count++;
+                else playlistQueue.push({ id: t.id, name: t.name, count: 1 });
+                sfx.click();
+                renderPlaylistQueue();
+            };
+            playlistChipsEl.appendChild(chip);
+        });
+
+        function renderPlaylistQueue() {
+            playlistQueueEl.innerHTML = '';
+            if (!playlistQueue.length) {
+                playlistQueueEl.innerHTML = '<p class="text-center text-slate-400 text-sm">Click tests above to add them</p>';
+                return;
+            }
+            playlistQueue.forEach((item, i) => {
+                const row = document.createElement('div');
+                row.className = 'playlist-queue-item glass';
+                row.innerHTML = `
+                    <span class="flex-1">${item.name}</span>
+                    <button class="pq-dec w-6 h-6 rounded-full glass flex items-center justify-center font-bold text-slate-500 text-xs">−</button>
+                    <span class="text-sm font-black w-8 text-center">${item.count}x</span>
+                    <button class="pq-inc w-6 h-6 rounded-full glass flex items-center justify-center font-bold text-slate-500 text-xs">+</button>
+                    <button class="pq-del text-red-400 text-xs font-bold ml-2">✕</button>`;
+                row.querySelector('.pq-dec').onclick = () => { if (item.count > 1) item.count--; else playlistQueue.splice(i, 1); renderPlaylistQueue(); };
+                row.querySelector('.pq-inc').onclick = () => { item.count++; renderPlaylistQueue(); };
+                row.querySelector('.pq-del').onclick = () => { playlistQueue.splice(i, 1); renderPlaylistQueue(); };
+                playlistQueueEl.appendChild(row);
+            });
+        }
+        renderPlaylistQueue();
+
+        const STORAGE_KEY = 'benchmark_playlists';
+        const savedPlaylistsEl = $('saved-playlists');
+
+        function getSavedPlaylists() {
+            try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+        }
+
+        function savePlaylists(data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        function renderSavedPlaylists() {
+            const saved = getSavedPlaylists();
+            const keys = Object.keys(saved);
+            savedPlaylistsEl.innerHTML = '';
+            if (!keys.length) {
+                savedPlaylistsEl.innerHTML = '<p class="text-center text-slate-400 text-xs">No saved playlists</p>';
+                return;
+            }
+            keys.forEach(name => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 py-1';
+                const summary = saved[name].map(i => `${i.count}x ${i.name}`).join(', ');
+                row.innerHTML = `
+                    <button class="sp-load flex-1 text-left text-sm font-semibold hover:text-blue-500 transition-colors truncate" title="${summary}">${name}</button>
+                    <span class="text-[10px] text-slate-400 shrink-0">${summary}</span>
+                    <button class="sp-del text-red-400 text-xs font-bold hover:text-red-500 shrink-0">\u2715</button>`;
+                row.querySelector('.sp-load').onclick = () => {
+                    playlistQueue = saved[name].map(i => ({ ...i }));
+                    sfx.click();
+                    renderPlaylistQueue();
+                };
+                row.querySelector('.sp-del').onclick = () => {
+                    delete saved[name];
+                    savePlaylists(saved);
+                    renderSavedPlaylists();
+                };
+                savedPlaylistsEl.appendChild(row);
+            });
+        }
+        renderSavedPlaylists();
+
+        $('btn-save-playlist').onclick = () => {
+            const name = $('playlist-save-name').value.trim();
+            if (!name || !playlistQueue.length) return;
+            const saved = getSavedPlaylists();
+            saved[name] = playlistQueue.map(i => ({ id: i.id, name: i.name, count: i.count }));
+            savePlaylists(saved);
+            $('playlist-save-name').value = '';
+            sfx.success();
+            renderSavedPlaylists();
+        };
+
+        $('btn-clear-playlist').onclick = () => { playlistQueue = []; renderPlaylistQueue(); };
+        $('btn-cancel-playlist').onclick = () => stopPlaylist();
+
+        $('btn-run-playlist').onclick = () => {
+            if (!playlistQueue.length) return;
+            // Flatten the queue
+            playlistFlat = [];
+            playlistQueue.forEach(item => {
+                for (let r = 0; r < item.count; r++) {
+                    playlistFlat.push({ id: item.id, name: item.name, roundNum: r + 1, totalRounds: item.count });
+                }
+            });
+            playlistIdx = 0;
+            playlistRunning = true;
+            sfx.click();
+            runPlaylistStep();
+        };
+
+        function runPlaylistStep() {
+            if (playlistIdx >= playlistFlat.length) {
+                stopPlaylist();
+                return;
+            }
+            const step = playlistFlat[playlistIdx];
+            // Update HUD
+            playlistHud.style.opacity = '1';
+            playlistHudLabel.innerText = `${playlistIdx + 1} / ${playlistFlat.length}`;
+            playlistHudTest.innerText = step.name;
+
+            // Switch to the test view
+            switchView(step.id);
+
+            // Auto-start after a brief delay for the view transition
+            setTimeout(() => {
+                if (!playlistRunning) return;
+                autoStartCurrentTest(step.id);
+            }, 400);
+        }
+
+        function autoStartCurrentTest(id) {
+            // For reaction, we trigger the first click to enter WAITING state
+            if (id === 'reaction') {
+                playlistRxCount = 0;
+                viewReaction.dispatchEvent(new Event('mousedown'));
+                return;
+            }
+            // For all other tests, find and click the start button
+            const prefixMap = {
+                'aim': 'aim', 'tracking': 'track', 'displacement': 'disp',
+                'stroop': 'stroop', 'schulte': 'schulte', 'projection': 'proj',
+                'cps': 'cps',
+            };
+            const prefix = prefixMap[id];
+            if (prefix) {
+                const btn = $(`btn-start-${prefix}`);
+                if (btn) btn.click();
+            }
+        }
+
+        function onPlaylistRoundComplete() {
+            if (!playlistRunning) return;
+            playlistIdx++;
+            // Brief pause before next test
+            setTimeout(() => {
+                if (!playlistRunning) return;
+                runPlaylistStep();
+            }, 800);
+        }
+
+        function stopPlaylist() {
+            playlistRunning = false;
+            playlistHud.style.opacity = '0';
+            // Navigate back to the playlist builder
+            switchView('playlist');
+        }
+
     </script>
 </body>
 
