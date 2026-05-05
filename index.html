@@ -1,0 +1,2201 @@
+<!DOCTYPE html>
+<!-- 
+  LINE MAP INDEX:
+  0009: CSS Styles
+  0223: HTML Layout
+  0532: JS Entry & DOM Refs
+  0559: Global State & Scores
+  0571: View Management
+  0694: Logic Reset
+  0730: Reaction Test
+  0786: Sequence Memory
+  0846: Level Factory
+  0896: Pattern Memory
+  1008: Chimp Test
+  1085: Verbal Memory
+  1160: Typing Test
+  1380: CPS Logic
+  1439: Aim Trainer
+  1520: Tracking Test
+  1580: Displacement Test
+  1850: Stroop Test
+  1910: Schulte Tables
+  2000: Motion Projection
+-->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmarks</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --glass-bg: rgba(15, 23, 42, 0.03);
+            --border-color: rgba(15, 23, 42, 0.08);
+            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.02);
+            --waiting-color: #ef4444;
+            --ready-color: #22c55e;
+            --result-color: #3b82f6;
+        }
+
+        .dark-mode {
+            --bg-color: #05070a;
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            transition: background-color 0.4s ease, color 0.4s ease;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .glass {
+            background: var(--glass-bg);
+            background-image: var(--glass-gradient, linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 100%));
+            backdrop-filter: blur(16px) saturate(120%);
+            -webkit-backdrop-filter: blur(16px) saturate(120%);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--glass-shadow, 0 8px 32px 0 rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.4));
+            transition: all 0.2s ease;
+        }
+
+        .game-card {
+            background: var(--bg-color);
+            background-image: var(--card-gradient, linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%));
+            box-shadow: var(--card-shadow), var(--card-inset, inset 0 1px 2px rgba(255, 255, 255, 0.6));
+            transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), background-color 0.05s linear;
+            border: 1px solid var(--border-color);
+        }
+
+        .dark-mode .glass,
+        .dark-mode .game-card {
+            --glass-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+            --card-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            --card-inset: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        .state-waiting,
+        .state-ready,
+        .state-result {
+            color: white !important;
+            border-color: transparent;
+        }
+
+        .state-waiting {
+            background-color: var(--waiting-color) !important;
+        }
+
+        .state-ready {
+            background-color: var(--ready-color) !important;
+        }
+
+        .state-result {
+            background-color: var(--result-color) !important;
+        }
+
+        .state-waiting .text-slate-400,
+        .state-ready .text-slate-400,
+        .state-result .text-slate-400 {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+
+        .stat-update {
+            animation: stat-pop 0.3s ease-out;
+        }
+
+        @keyframes stat-pop {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .nav-btn {
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+            color: var(--text-main);
+            opacity: 0.4;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-btn:hover {
+            opacity: 0.7;
+        }
+
+        .nav-btn.active {
+            opacity: 1;
+        }
+
+        .nav-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: var(--text-main);
+            opacity: 0.8;
+        }
+
+        /* Circular Level Buttons */
+        .lvl-btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+
+        .lvl-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .lvl-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Bloom Effect */
+        .bloom {
+            box-shadow: 0 0 15px -2px var(--ready-color), 0 0 30px -5px var(--ready-color);
+            opacity: 0.9;
+            border-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .tile-active {
+            background-color: var(--text-main) !important;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.15), 0 0 40px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .dark-mode .tile-active {
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2), 0 0 40px rgba(255, 255, 255, 0.1) !important;
+        }
+
+
+
+        .chimp-tile {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .chimp-tile:active {
+            transform: scale(0.92);
+        }
+
+        .chimp-tile.correct {
+            background-color: var(--ready-color) !important;
+            border-color: transparent !important;
+        }
+
+        .chimp-tile.wrong {
+            background-color: var(--waiting-color) !important;
+            border-color: transparent !important;
+            color: #fff !important;
+        }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        @keyframes blinkCaret {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .btn-primary {
+            padding: 1rem 3rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .btn-primary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary {
+            padding: 0.75rem 2rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), text-decoration-color 150ms cubic-bezier(0.4, 0, 0.2, 1), fill 150ms cubic-bezier(0.4, 0, 0.2, 1), stroke 150ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.95);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+
+<body class="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 transition-colors duration-300">
+
+    <div class="fixed top-6 left-6 right-6 flex justify-between items-center z-50">
+        <button id="reset-session" class="btn-control flex items-center gap-2 group" title="Reset Session (Tab)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                class="text-slate-400 group-hover:text-red-500 transition-colors">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+            </svg>
+            <span
+                class="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-red-500 transition-colors">Reset
+                Session</span>
+        </button>
+
+        <div
+            class="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 h-10 flex items-center justify-center w-[400px]">
+            <div id="nav-main"
+                class="absolute flex gap-8 items-center transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)] translate-x-0 opacity-100">
+                <button class="nav-btn" data-target="speed-menu">Speed</button>
+                <button class="nav-btn" data-target="memory-menu">Memory</button>
+                <button class="nav-btn" data-target="typing">Typing</button>
+                <button class="nav-btn" data-target="aim">Aim</button>
+                <button class="nav-btn" data-target="tracking">Tracking</button>
+                <button class="nav-btn" data-target="displacement">Spatial</button>
+                <button class="nav-btn" data-target="projection">Projection</button>
+                <button class="nav-btn" data-target="cps">CPS</button>
+            </div>
+
+            <div id="nav-memory"
+                class="absolute flex gap-5 items-center transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)] translate-x-12 opacity-0 pointer-events-none">
+                <button
+                    class="nav-btn flex items-center justify-center w-6 h-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10 !opacity-40 hover:!opacity-100 transition-all !after:hidden"
+                    data-target="main-menu" title="Back">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m15 18-6-6 6-6" />
+                    </svg>
+                </button>
+                <button class="nav-btn" data-target="memory-sequence">Sequence</button>
+                <button class="nav-btn" data-target="memory-pattern">Pattern</button>
+                <button class="nav-btn" data-target="memory-digit">Digit</button>
+                <button class="nav-btn" data-target="memory-chimp">Chimp</button>
+                <button class="nav-btn" data-target="verbal-memory">Verbal</button>
+            </div>
+
+            <div id="nav-speed"
+                class="absolute flex gap-5 items-center transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)] translate-x-12 opacity-0 pointer-events-none">
+                <button
+                    class="nav-btn flex items-center justify-center w-6 h-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10 !opacity-40 hover:!opacity-100 transition-all !after:hidden"
+                    data-target="main-menu" title="Back">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m15 18-6-6 6-6" />
+                    </svg>
+                </button>
+                <button class="nav-btn" data-target="reaction">Reaction</button>
+                <button class="nav-btn" data-target="stroop">Stroop</button>
+                <button class="nav-btn" data-target="schulte">Schulte</button>
+            </div>
+        </div>
+
+        <button id="theme-toggle" class="btn-control" title="Toggle Theme">
+            <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="text-slate-400">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+            <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="hidden text-amber-400">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" />
+                <path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" />
+                <path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" />
+                <path d="m19.07 4.93-1.41 1.41" />
+            </svg>
+        </button>
+    </div>
+
+    <div id="main-container"
+        class="max-w-5xl w-full flex-1 flex flex-col relative z-10 transition-opacity duration-700 mx-auto mt-24 mb-12">
+        <header class="text-center h-6 hidden">
+            <h1 id="lab-title"
+                class="text-xs font-black tracking-[0.4em] uppercase text-slate-400 mb-1 transition-opacity duration-300">
+                Reaction Test</h1>
+        </header>
+
+        <div id="game-area"
+            class="w-full flex-1 flex flex-col items-center justify-center relative select-none transition-all duration-700">
+            <div id="flash"
+                class="fixed inset-0 bg-white opacity-0 pointer-events-none z-50 transition-opacity duration-75"></div>
+
+            <div id="view-reaction"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-300 opacity-100 z-10">
+                <div class="relative z-10 text-center space-y-3 pointer-events-none">
+                    <h2 id="reaction-main-text" class="text-6xl font-light tracking-tight">Tap to Start</h2>
+                    <p id="reaction-sub-text" class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">
+                        Precision Test 01</p>
+                </div>
+                <div id="reaction-result"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 scale-95 transition-all duration-300 pointer-events-none z-20">
+                    <span class="text-8xl font-black tracking-tighter text-white" id="reaction-ms">--</span>
+                    <span
+                        class="text-[10px] uppercase font-black tracking-[0.5em] text-white/70 mt-4">Milliseconds</span>
+                </div>
+            </div>
+
+            <div id="view-aim"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none z-10">
+                <div id="aim-start-screen"
+                    class="text-center absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300">
+                    <h2 class="text-5xl font-light tracking-tight mb-8">Aim Trainer</h2>
+                    <div class="flex gap-12 items-center mb-8">
+                        <div class="glass p-8 rounded-3xl space-y-6 w-80">
+                            <div class="space-y-4">
+                                <label
+                                    class="text-[10px] font-bold uppercase tracking-widest text-slate-400 block text-left">Target
+                                    Size</label>
+                                <input type="range" id="aim-size-slider" min="10" max="80" value="30"
+                                    class="w-full accent-blue-500">
+                            </div>
+                            <div class="space-y-4">
+                                <label
+                                    class="text-[10px] font-bold uppercase tracking-widest text-slate-400 block text-left">Movement
+                                    Speed</label>
+                                <input type="range" id="aim-speed-slider" min="0" max="15" value="5"
+                                    class="w-full accent-blue-500">
+                            </div>
+                            <div class="flex items-center justify-between gap-12">
+                                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Moving
+                                    Targets</span>
+                                <input type="checkbox" id="aim-moving-toggle" class="w-5 h-5 accent-blue-500">
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-center gap-4">
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Preview</span>
+                            <div id="aim-preview-box" class="w-48 h-48 glass rounded-3xl relative overflow-hidden">
+                                <div id="aim-size-preview"
+                                    class="absolute w-[30px] h-[30px] bg-red-500 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="btn-start-aim" class="btn-primary glass">Start</button>
+                </div>
+                <div id="aim-game-screen" class="absolute inset-0 hidden">
+                    <div class="absolute top-6 left-12"><span
+                            class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Time</span>
+                        <div id="aim-time-live" class="text-4xl font-light">30.0</div>
+                    </div>
+                    <div class="absolute top-6 right-12 text-right"><span
+                            class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Score</span>
+                        <div id="aim-score-live" class="text-4xl font-light">0</div>
+                    </div>
+                    <canvas id="aim-canvas" class="w-full h-full cursor-crosshair"></canvas>
+                </div>
+            </div>
+
+            <div id="view-memory-sequence"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+                <div id="seq-start-screen"
+                    class="text-center absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300">
+                </div>
+                <div id="seq-game-screen"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+                    <div id="seq-level"
+                        class="absolute top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        Level 1</div>
+                    <div id="seq-grid" class="grid grid-cols-3 gap-3 p-4">
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-memory-pattern"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+                <div id="pat-start-screen"
+                    class="text-center absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300">
+                </div>
+                <div id="pat-game-screen"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+                    <div id="pat-level"
+                        class="absolute top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        Level 1</div>
+                    <div id="pat-grid" class="grid grid-cols-3 gap-2 p-4 w-full max-w-[16rem]">
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-memory-digit"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+                <div id="dig-start-screen"
+                    class="text-center absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300">
+                </div>
+                <div id="dig-show-screen"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 w-full px-8">
+                    <div id="dig-display" class="text-6xl tracking-[0.2em] font-light text-center break-all"></div>
+                    <div class="absolute bottom-12 w-3/4 h-1 rounded-full overflow-hidden">
+                        <div id="dig-timer" class="h-full bg-slate-400 dark:bg-slate-500 w-full origin-left"></div>
+                    </div>
+                </div>
+                <div id="dig-input-screen"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 w-full px-8">
+                    <input type="number" id="dig-input"
+                        class="bg-transparent border-b-2 border-slate-200 dark:border-slate-800 text-4xl text-center focus:outline-none focus:border-slate-400 dark:focus:border-slate-600 transition-colors w-3/4 mb-8"
+                        placeholder="Enter Number" autocomplete="off">
+                    <button id="btn-submit-dig"
+                        class="px-10 py-3 rounded-full glass hover:bg-black/5 dark:hover:bg-white/10 transition-colors font-semibold shadow-sm active:scale-95">Submit</button>
+                </div>
+            </div>
+
+            <div id="view-memory-chimp"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+                <div id="chimp-start-screen"
+                    class="text-center absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300">
+                </div>
+                <div id="chimp-game-screen"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+                    <div id="chimp-level"
+                        class="absolute top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        Level 1</div>
+                    <div id="chimp-grid" class="grid gap-2 p-4">
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-verbal-memory"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+                <div id="verbal-start-screen" class="text-center transition-opacity duration-300">
+                    <h2 class="text-5xl font-light tracking-tight mb-3">Verbal Memory</h2>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Seen or New</p>
+                    <button id="btn-start-verbal" class="btn-secondary glass">Start</button>
+                </div>
+                <div id="verbal-game-screen"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+                    <div class="absolute top-6 left-12 flex flex-col">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Lives</span>
+                        <div id="verbal-lives" class="text-4xl font-light text-red-500">3</div>
+                    </div>
+                    <div class="absolute top-6 right-12 text-right flex flex-col">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Score</span>
+                        <div id="verbal-score-live" class="text-4xl font-light">0</div>
+                    </div>
+                    <div id="verbal-word" class="text-6xl font-light mb-16 tracking-tight">---</div>
+                    <div class="flex gap-6">
+                        <button id="btn-verbal-seen" class="btn-primary glass text-blue-500">Seen</button>
+                        <button id="btn-verbal-new" class="btn-primary glass text-emerald-500">New</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-typing"
+                class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+                <div id="type-start-screen"
+                    class="text-center absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 z-20">
+                    <h2 class="text-5xl font-light tracking-tight mb-3">Typing</h2>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Speed & Accuracy</p>
+
+                    <div class="flex flex-col items-center gap-6 mb-8">
+                        <div
+                            class="flex gap-4 text-xs font-bold uppercase tracking-widest bg-black/5 dark:bg-white/5 rounded-full p-1 border border-black/5 dark:border-white/5 shadow-inner">
+                            <button id="type-mode-words"
+                                class="type-mode-btn px-6 py-2 rounded-full text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700 shadow-sm transition-all"
+                                data-mode="words">Words</button>
+                            <button id="type-mode-time"
+                                class="type-mode-btn px-6 py-2 rounded-full hover:text-slate-800 dark:hover:text-slate-200 transition-all text-slate-500"
+                                data-mode="time">Time</button>
+                        </div>
+
+                        <div id="type-config-vals"
+                            class="flex gap-1 text-xs font-bold uppercase tracking-widest text-slate-500 bg-black/5 dark:bg-white/5 rounded-full p-1 border border-black/5 dark:border-white/5 shadow-inner">
+                            <button
+                                class="type-len-btn px-4 py-1.5 rounded-full text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700 shadow-sm transition-all"
+                                data-len="15">15</button>
+                            <button
+                                class="type-len-btn px-4 py-1.5 rounded-full hover:text-slate-800 dark:hover:text-slate-200 transition-all"
+                                data-len="30">30</button>
+                            <button
+                                class="type-len-btn px-4 py-1.5 rounded-full hover:text-slate-800 dark:hover:text-slate-200 transition-all"
+                                data-len="60">60</button>
+                            <button
+                                class="type-len-btn px-4 py-1.5 rounded-full hover:text-slate-800 dark:hover:text-slate-200 transition-all"
+                                data-len="100">100</button>
+                        </div>
+                    </div>
+
+                    <button id="btn-start-type" class="btn-secondary glass">Start</button>
+                </div>
+                <div id="type-game-screen"
+                    class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 px-12">
+                    <div id="type-game-header"
+                        class="flex justify-between w-full max-w-5xl mb-6 opacity-0 transition-opacity">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Live
+                                WPM</span>
+                            <div id="type-live-wpm"
+                                class="text-4xl font-light text-slate-600 dark:text-slate-300 leading-none">0</div>
+                        </div>
+                        <div class="flex flex-col text-right">
+                            <span id="type-timer-label"
+                                class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1 hidden">Time</span>
+                            <div id="type-live-timer"
+                                class="text-4xl font-light text-slate-600 dark:text-slate-300 leading-none hidden">60
+                            </div>
+                        </div>
+                    </div>
+                    <div id="type-words"
+                        class="text-[28px] font-medium leading-[1.6] text-left w-full max-w-5xl break-words whitespace-pre-wrap text-slate-400 dark:text-slate-600 select-none relative">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    </div>
+
+    <div id="view-tracking"
+        class="game-view absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none z-10">
+        <div id="track-start-screen" class="text-center absolute inset-0 flex flex-col items-center justify-center">
+            <h2 class="text-5xl font-light tracking-tight mb-8">Tracking</h2>
+            <button id="btn-start-track" class="btn-primary glass">Start</button>
+        </div>
+        <div id="track-game-screen" class="absolute inset-0 hidden">
+            <div class="absolute top-6 left-12"><span
+                    class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Time</span>
+                <div id="track-time-live" class="text-4xl font-light">30.0</div>
+            </div>
+            <div class="absolute top-6 right-12 text-right"><span
+                    class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Accuracy</span>
+                <div id="track-acc-live" class="text-4xl font-light">0%</div>
+            </div>
+            <canvas id="track-canvas" class="w-full h-full cursor-crosshair"></canvas>
+        </div>
+    </div>
+
+    <div id="view-displacement"
+        class="game-view absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none z-10">
+        <div id="disp-start-screen" class="text-center absolute inset-0 flex flex-col items-center justify-center">
+            <h2 class="text-5xl font-light tracking-tight mb-8">Spatial Memory</h2>
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Recall the position</p>
+            <button id="btn-start-disp" class="btn-primary glass">Start</button>
+        </div>
+        <div id="disp-game-screen" class="absolute inset-0 hidden">
+            <canvas id="disp-canvas" class="w-full h-full cursor-crosshair"></canvas>
+            <div id="disp-msg"
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-400 font-bold uppercase tracking-[0.4em] pointer-events-none">
+                Get Ready</div>
+        </div>
+    </div>
+
+    <div id="view-stroop"
+        class="game-view absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none z-10">
+        <div id="stroop-start-screen" class="text-center absolute inset-0 flex flex-col items-center justify-center">
+            <h2 class="text-5xl font-light tracking-tight mb-8">Stroop Test</h2>
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Click the INK color</p>
+            <button id="btn-start-stroop" class="btn-primary glass">Start</button>
+        </div>
+        <div id="stroop-game-screen"
+            class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+            <div id="stroop-word" class="text-8xl font-black mb-24 tracking-tighter transition-all duration-150">RED
+            </div>
+            <div class="grid grid-cols-2 gap-4 w-full max-w-md">
+                <button
+                    class="stroop-btn glass py-6 rounded-3xl font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all text-red-500"
+                    data-color="red">Red</button>
+                <button
+                    class="stroop-btn glass py-6 rounded-3xl font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all text-blue-500"
+                    data-color="blue">Blue</button>
+                <button
+                    class="stroop-btn glass py-6 rounded-3xl font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all text-emerald-500"
+                    data-color="emerald">Green</button>
+                <button
+                    class="stroop-btn glass py-6 rounded-3xl font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all text-amber-500"
+                    data-color="amber">Yellow</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-schulte"
+        class="game-view absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none z-10">
+        <div id="schulte-start-screen" class="text-center absolute inset-0 flex flex-col items-center justify-center">
+            <h2 class="text-5xl font-light tracking-tight mb-8">Schulte Table</h2>
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Click 1 to 25 fast</p>
+            <button id="btn-start-schulte" class="btn-primary glass">Start</button>
+        </div>
+        <div id="schulte-game-screen"
+            class="absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+            <div id="schulte-grid" class="grid grid-cols-5 gap-2 p-4 w-full max-w-[32rem]"></div>
+        </div>
+    </div>
+
+    <div id="view-projection"
+        class="game-view absolute inset-0 flex flex-col items-center justify-center opacity-0 pointer-events-none z-10">
+        <div id="proj-start-screen" class="text-center absolute inset-0 flex flex-col items-center justify-center">
+            <h2 class="text-5xl font-light tracking-tight mb-8">Motion Projection</h2>
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Predict the exit</p>
+            <button id="btn-start-proj" class="btn-primary glass">Start</button>
+        </div>
+        <div id="proj-game-screen" class="absolute inset-0 hidden">
+            <canvas id="proj-canvas" class="w-full h-full cursor-crosshair"></canvas>
+            <div id="proj-msg"
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-400 font-bold uppercase tracking-[0.4em] pointer-events-none">
+                Watch Velocity</div>
+        </div>
+    </div>
+
+    <div id="view-cps"
+        class="game-view absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none z-10">
+        <div id="cps-start-screen"
+            class="text-center absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 z-20">
+            <h2 class="text-5xl font-light tracking-tight mb-3">Click Speed</h2>
+            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Clicks Per Second
+                (5s)</p>
+            <button id="btn-start-cps" class="btn-secondary glass">Start</button>
+        </div>
+        <div id="cps-game-screen"
+            class="absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div id="cps-click-area"
+                class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer select-none active:scale-[0.98] transition-transform">
+                <span id="cps-click-count" class="text-[150px] font-black tracking-tighter leading-none">0</span>
+                <span class="text-[10px] uppercase font-black tracking-[0.5em] text-slate-400 mt-4 block">Clicks</span>
+            </div>
+            <div class="absolute top-0 inset-x-0 flex justify-between max-w-5xl mx-auto px-12 pt-6 pointer-events-none">
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Time</span>
+                    <div id="cps-live-timer"
+                        class="text-4xl font-light text-slate-600 dark:text-slate-300 leading-none">5.0</div>
+                </div>
+                <div class="flex flex-col text-right">
+                    <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">CPS</span>
+                    <div id="cps-live-cps" class="text-4xl font-light text-slate-600 dark:text-slate-300 leading-none">
+                        0.0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+        <div class="glass rounded-3xl p-6 transition-all duration-300 text-center">
+            <p id="stat-1-label" class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Session
+                Average</p>
+            <p id="stat-1-value" class="text-2xl font-light">0 <span id="stat-1-unit"
+                    class="text-xs text-slate-400">ms</span></p>
+        </div>
+        <div class="glass rounded-3xl p-6 transition-all duration-300 text-center">
+            <p id="stat-2-label" class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Best
+                Response</p>
+            <p id="stat-2-value" class="text-2xl font-light text-green-500">0 <span id="stat-2-unit"
+                    class="text-xs text-slate-400">ms</span></p>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        const gameArea = $('game-area'), flash = $('flash'), labTitle = $('lab-title');
+        const navMain = $('nav-main'), navMemory = $('nav-memory'), navSpeed = $('nav-speed');
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const views = document.querySelectorAll('.game-view');
+        const stat1Label = $('stat-1-label'), stat1Value = $('stat-1-value'), stat1Unit = $('stat-1-unit');
+        const stat2Label = $('stat-2-label'), stat2Value = $('stat-2-value'), stat2Unit = $('stat-2-unit');
+        const rxMainText = $('reaction-main-text'), rxSubText = $('reaction-sub-text');
+        const rxResult = $('reaction-result'), rxMs = $('reaction-ms');
+        const viewReaction = $('view-reaction'), viewTyping = $('view-typing');
+        const seqGrid = $('seq-grid'), patGrid = $('pat-grid');
+        const digDisplay = $('dig-display'), digTimer = $('dig-timer'), digInput = $('dig-input');
+        const digShowScreen = $('dig-show-screen'), digInputScreen = $('dig-input-screen');
+        const seqStartScreen = $('seq-start-screen'), seqGameScreen = $('seq-game-screen'), seqLevel = $('seq-level');
+        const patStartScreen = $('pat-start-screen'), patGameScreen = $('pat-game-screen'), patLevel = $('pat-level');
+        const typeWordsContainer = $('type-words'), typeGameScreen = $('type-game-screen');
+        const typeStartScreen = $('type-start-screen'), typeGameHeader = $('type-game-header');
+        const typeLiveWpm = $('type-live-wpm'), typeLiveTimer = $('type-live-timer'), typeTimerLabel = $('type-timer-label');
+        const cpsStartScreen = $('cps-start-screen'), cpsGameScreen = $('cps-game-screen');
+        const cpsLiveTimer = $('cps-live-timer'), cpsLiveCps = $('cps-live-cps');
+        const cpsClickArea = $('cps-click-area'), cpsClickCount = $('cps-click-count');
+        const chimpStartScreen = $('chimp-start-screen'), chimpGameScreen = $('chimp-game-screen');
+        const chimpGrid = $('chimp-grid'), chimpLevel = $('chimp-level');
+        const verbalStartScreen = $('verbal-start-screen'), verbalGameScreen = $('verbal-game-screen');
+        const verbalWordDisp = $('verbal-word'), verbalLivesDisp = $('verbal-lives'), verbalScoreDisp = $('verbal-score-live');
+        const moonIcon = $('moon-icon'), sunIcon = $('sun-icon');
+        let currentMode = 'reaction';
+
+        const viewConfig = {
+            'reaction': { title: 'Reaction Test', s1: 'Session Average', s2: 'Best Response', unit: 'ms' },
+            'memory-sequence': { title: 'Sequence Memory', s1: 'Current Level', s2: 'Max Level', unit: null },
+            'memory-pattern': { title: 'Pattern Memory', s1: 'Current Level', s2: 'Max Level', unit: null },
+            'memory-digit': { title: 'Digit Span', s1: 'Current Length', s2: 'Max Length', unit: null },
+            'memory-chimp': { title: 'Chimp Test', s1: 'Current Level', s2: 'Max Level', unit: null },
+            'verbal-memory': { title: 'Verbal Memory', s1: 'Current Score', s2: 'Best Score', unit: null },
+            'typing': { title: 'Typing Speed', s1: 'Round WPM', s2: 'Best WPM', unit: 'wpm' },
+            'aim': { title: 'Aim Trainer', s1: 'Round Score', s2: 'Best Score', unit: 'pts' },
+            'tracking': { title: 'Tracking', s1: 'On-Target', s2: 'Best Record', unit: 'ms' },
+            'displacement': { title: 'Spatial Memory', s1: 'Avg Error', s2: 'Precision', unit: 'px' },
+            'stroop': { title: 'Stroop Test', s1: 'Reaction', s2: 'Best Speed', unit: 'ms' },
+            'schulte': { title: 'Schulte Table', s1: 'Completion', s2: 'Best Time', unit: 'ms' },
+            'projection': { title: 'Motion Prediction', s1: 'Precision', s2: 'Best Pred', unit: 'ms' },
+            'cps': { title: 'Click Speed', s1: 'Average CPS', s2: 'Best CPS', unit: 'cps' }
+        };
+
+
+        function switchView(target) {
+            currentMode = target;
+            resetGameLogic();
+            views.forEach(v => { v.classList.add('opacity-0', 'pointer-events-none'); v.classList.remove('opacity-100'); });
+
+            const activeView = $(`view-${target}`);
+            activeView.classList.remove('opacity-0', 'pointer-events-none');
+            activeView.classList.add('opacity-100');
+
+            const cfg = viewConfig[target];
+            labTitle.innerText = cfg.title;
+            stat1Label.innerText = cfg.s1;
+            stat2Label.innerText = cfg.s2;
+            const show = cfg.unit ? 'inline' : 'none';
+            stat1Unit.style.display = show;
+            stat2Unit.style.display = show;
+            if (cfg.unit) { stat1Unit.innerText = cfg.unit; stat2Unit.innerText = cfg.unit; }
+
+            const isTyping = target === 'typing';
+            viewTyping.classList.toggle('absolute', !isTyping);
+            viewTyping.classList.toggle('inset-0', !isTyping);
+            viewTyping.classList.toggle('relative', isTyping);
+            viewTyping.classList.toggle('w-full', isTyping);
+            viewTyping.classList.toggle('flex-1', isTyping);
+            updateStatsUI();
+        }
+
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const target = e.currentTarget.dataset.target;
+
+                if (target === 'memory-menu' || target === 'speed-menu') {
+                    navMain.style.transform = 'translateX(-3rem)';
+                    navMain.style.opacity = '0';
+                    navMain.style.pointerEvents = 'none';
+
+                    const menu = target === 'memory-menu' ? navMemory : navSpeed;
+                    menu.style.transform = 'translateX(0)';
+                    menu.style.opacity = '1';
+                    menu.style.pointerEvents = 'auto';
+                } else if (target === 'main-menu') {
+                    [navMemory, navSpeed].forEach(m => {
+                        m.style.transform = 'translateX(3rem)';
+                        m.style.opacity = '0';
+                        m.style.pointerEvents = 'none';
+                    });
+
+                    navMain.style.transform = 'translateX(0)';
+                    navMain.style.opacity = '1';
+                    navMain.style.pointerEvents = 'auto';
+                    navBtns.forEach(b => {
+                        if (b.dataset.target === 'reaction') b.classList.add('active');
+                        else b.classList.remove('active');
+                    });
+                } else {
+                    const parent = e.currentTarget.parentElement;
+                    parent.querySelectorAll('.nav-btn[data-target]:not([data-target="main-menu"])').forEach(b => b.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    switchView(target);
+                }
+            });
+        });
+
+        $('theme-toggle').addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            moonIcon.classList.toggle('hidden', isDark);
+            sunIcon.classList.toggle('hidden', !isDark);
+        });
+
+        const mainContainer = $('main-container');
+
+        let globalScores = {
+            'reaction': { scores: [] },
+            'memory-sequence': { level: 1, max: 1 },
+            'memory-pattern': { level: 1, max: 1 },
+            'memory-digit': { level: 1, max: 1 },
+            'memory-chimp': { level: 1, max: 1 },
+            'verbal-memory': { scores: [] },
+            'typing': { scores: [] },
+            'aim': { scores: [] },
+            'tracking': { scores: [] },
+            'displacement': { scores: [] },
+            'stroop': { scores: [] },
+            'schulte': { scores: [] },
+            'projection': { scores: [] },
+            'cps': { scores: [] }
+        };
+
+        function flashScreen() {
+            flash.style.opacity = '0.4';
+            setTimeout(() => flash.style.opacity = '0', 100);
+        }
+
+        function statPop(el) {
+            el.parentElement.classList.add('stat-update');
+            setTimeout(() => el.parentElement.classList.remove('stat-update'), 300);
+        }
+
+        const unitSpan = (u) => `<span class="text-xs text-slate-400">${u}</span>`;
+        function setStat(el, val, unit) { el.innerHTML = unit ? `${val} ${unitSpan(unit)}` : `${val}`; }
+
+        function updateStatsUI() {
+            const data = globalScores[currentMode];
+            const cfg = viewConfig[currentMode];
+            if (data.scores) {
+                const u = cfg.unit;
+                if (data.scores.length === 0) {
+                    setStat(stat1Value, 0, u); setStat(stat2Value, 0, u);
+                } else {
+                    const avg = ['typing', 'aim', 'tracking', 'displacement'].includes(currentMode) ? data.scores.at(-1) : data.scores.reduce((a, b) => a + b) / data.scores.length;
+                    const best = ['reaction', 'displacement'].includes(currentMode) ? Math.min(...data.scores) : Math.max(...data.scores);
+                    const format = v => ['cps', 'tracking'].includes(currentMode) ? v.toFixed(1) : Math.round(v);
+                    setStat(stat1Value, format(avg), u); setStat(stat2Value, format(best), u);
+                    statPop(stat1Value);
+                }
+            } else {
+                setStat(stat1Value, data.level); setStat(stat2Value, data.max);
+                statPop(stat1Value);
+            }
+        }
+
+        function resetSession() {
+            const d = globalScores[currentMode];
+            if (d.scores) d.scores = []; else d.level = 1;
+            resetGameLogic();
+            updateStatsUI();
+        }
+        $('reset-session').addEventListener('click', resetSession);
+
+        let aimAnimationId, gameOverTimeout, dispTimeout, projTimeout, chimpTimeout;
+
+        function resetGameLogic() {
+            clearTimeout(gameOverTimeout);
+            document.body.classList.remove('state-waiting', 'state-ready', 'state-result');
+            clearTimeout(rxTimeout); clearTimeout(seqTimeout); clearTimeout(patTimeout);
+            clearTimeout(dispTimeout); clearTimeout(projTimeout); clearTimeout(chimpTimeout);
+
+            rxState = 'IDLE';
+            rxMainText.classList.remove('opacity-0'); rxSubText.classList.remove('opacity-0');
+            rxResult.classList.add('opacity-0', 'scale-95'); rxMainText.innerText = 'Tap to Start';
+
+            ['seq', 'pat', 'chimp', 'verbal', 'stroop', 'schulte'].forEach(m => {
+                const ss = $(`${m}-start-screen`), gs = $(`${m}-game-screen`);
+                if (ss) ss.classList.remove('opacity-0', 'pointer-events-none');
+                if (gs) gs.classList.add('opacity-0', 'pointer-events-none');
+            });
+
+            $('dig-start-screen').classList.remove('opacity-0', 'pointer-events-none');
+            digShowScreen.classList.add('opacity-0', 'pointer-events-none');
+            digInputScreen.classList.add('opacity-0', 'pointer-events-none');
+            digInput.value = '';
+
+            ['aim', 'track', 'disp', 'proj'].forEach(m => {
+                const ss = $(`${m}-start-screen`), gs = $(`${m}-game-screen`);
+                if (ss) ss.classList.remove('opacity-0', 'pointer-events-none');
+                if (gs) gs.classList.add('hidden');
+            });
+
+            aimState = 'START';
+            cancelAnimationFrame(aimAnimationId);
+            if (trackAnimId) cancelAnimationFrame(trackAnimId);
+            if (projAnimId) cancelAnimationFrame(projAnimId);
+
+            clearInterval(typeWpmInterval);
+            typeGameHeader.classList.add('opacity-0');
+            typeStartScreen.classList.remove('hidden');
+            typeGameScreen.classList.add('opacity-0', 'pointer-events-none', 'absolute', 'inset-0');
+            typeGameScreen.classList.remove('relative', 'opacity-100');
+
+            cpsStartScreen.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            cpsGameScreen.classList.add('opacity-0', 'pointer-events-none');
+            cpsClickArea.classList.remove('state-ready', 'state-result');
+            clearInterval(cpsInterval);
+
+            mainContainer.style.transform = '';
+        }
+
+        // audio
+        let audioCtx;
+        function playTone(freq, type, dur, vol) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + dur);
+        }
+        const sfx = {
+            click: () => playTone(600, 'sine', 0.1, 0.1),
+            success: () => { playTone(800, 'sine', 0.1, 0.1); setTimeout(() => playTone(1000, 'sine', 0.1, 0.1), 50); },
+            fail: () => playTone(150, 'square', 0.3, 0.05)
+        };
+
+        let rxState = 'IDLE', rxStart = 0, rxTimeout = null;
+
+        function setRxUI(state) {
+            document.body.classList.remove('state-waiting', 'state-ready', 'state-result');
+            rxResult.classList.add('opacity-0', 'scale-95');
+            rxMainText.classList.remove('opacity-0');
+            rxSubText.classList.remove('opacity-0');
+
+            switch (state) {
+                case 'IDLE':
+                    rxMainText.innerText = 'Tap to Start';
+                    break;
+                case 'WAITING':
+                    document.body.classList.add('state-waiting');
+                    rxMainText.innerText = 'Wait...';
+                    break;
+                case 'READY':
+                    document.body.classList.add('state-ready');
+                    rxMainText.innerText = 'TAP!';
+                    break;
+                case 'TOO_SOON':
+                    document.body.classList.add('state-waiting');
+                    rxMainText.innerText = 'Too Early';
+                    break;
+            }
+        }
+
+        viewReaction.addEventListener('mousedown', () => {
+            if (currentMode !== 'reaction') return;
+            if (rxState === 'IDLE' || rxState === 'RESULT') {
+                setRxUI('WAITING');
+                rxState = 'WAITING';
+                const delay = Math.floor(Math.random() * 3500) + 1500;
+                rxTimeout = setTimeout(() => {
+                    rxState = 'READY';
+                    setRxUI('READY');
+                    rxStart = performance.now();
+                }, delay);
+            } else if (rxState === 'WAITING') {
+                clearTimeout(rxTimeout);
+                rxState = 'IDLE';
+                setRxUI('TOO_SOON');
+            } else if (rxState === 'READY') {
+                const time = performance.now() - rxStart;
+                rxState = 'RESULT';
+                document.body.classList.add('state-result');
+                rxMainText.classList.add('opacity-0');
+                rxSubText.classList.add('opacity-0');
+                rxResult.classList.remove('opacity-0', 'scale-95');
+                rxMs.innerText = Math.round(time);
+                flashScreen();
+                globalScores.reaction.scores.push(time);
+                updateStatsUI();
+            }
+        });
+
+        let seqArr = [], seqPlayerStep = 0, seqPlaying = false, seqTimeout = null;
+
+        function initSeqGrid() {
+            seqGrid.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const btn = document.createElement('div');
+                btn.className = 'w-16 h-16 rounded-xl glass cursor-pointer transition-all duration-100 active:scale-95';
+                btn.dataset.id = i;
+                btn.addEventListener('mousedown', () => handleSeqClick(i));
+                seqGrid.appendChild(btn);
+            }
+        }
+        initSeqGrid();
+
+        const LVL_BTN = 'w-8 h-8 rounded-full glass hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center font-bold text-slate-500 transition-colors';
+        const START_BTN = 'btn-secondary glass';
+
+        function initLevelSelector(prefix, scoreKey, onStart, title, subtitle) {
+            const state = { level: 1 };
+            const screen = $(`${prefix}-start-screen`);
+            screen.innerHTML = `
+                <h2 class="text-5xl font-light tracking-tight mb-3">${title}</h2>
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">${subtitle}</p>
+                <div class="flex items-center gap-4 mb-8 bg-black/5 dark:bg-white/5 rounded-full p-1 border border-black/5 dark:border-white/5 shadow-inner">
+                    <button class="${LVL_BTN}" id="${prefix}-lvl-dec">-</button>
+                    <div class="text-xs font-bold uppercase tracking-widest text-slate-500 w-20 text-center" id="${prefix}-lvl-disp">Level 1</div>
+                    <button class="${LVL_BTN}" id="${prefix}-lvl-inc">+</button>
+                </div>
+                <button id="btn-start-${prefix}" class="${START_BTN}">Start</button>`;
+            const disp = $(`${prefix}-lvl-disp`);
+            $(`${prefix}-lvl-dec`).addEventListener('click', () => {
+                if (state.level > 1) { state.level--; disp.innerText = `Level ${state.level}`; }
+            });
+            $(`${prefix}-lvl-inc`).addEventListener('click', () => {
+                if (state.level < 100) { state.level++; disp.innerText = `Level ${state.level}`; }
+            });
+            $(`btn-start-${prefix}`).addEventListener('click', () => {
+                $(`${prefix}-start-screen`).classList.add('opacity-0', 'pointer-events-none');
+                const gs = $(`${prefix}-game-screen`) || $(`${prefix}-show-screen`);
+                if (gs) gs.classList.remove('opacity-0', 'pointer-events-none');
+                globalScores[scoreKey].level = state.level;
+                updateStatsUI();
+                sfx.click();
+                onStart();
+            });
+            return state;
+        }
+
+        function gameOver(delay, cb) {
+            document.body.classList.add('state-waiting');
+            flashScreen();
+            sfx.fail();
+            clearTimeout(gameOverTimeout);
+            gameOverTimeout = setTimeout(() => { document.body.classList.remove('state-waiting'); if (cb) cb(); resetGameLogic(); }, delay);
+        }
+
+        function levelUp(key) {
+            globalScores[key].level++;
+            if (globalScores[key].level > globalScores[key].max) globalScores[key].max = globalScores[key].level;
+            updateStatsUI();
+            sfx.success();
+        }
+
+        const seqLvl = initLevelSelector('seq', 'memory-sequence', () => { seqArr = []; startSeqLevel(); }, 'Sequence', 'Memorize the pattern');
+
+        function startSeqLevel() {
+            const lvl = globalScores['memory-sequence'].level;
+            seqLevel.innerText = `Level ${lvl}`;
+            while (seqArr.length < lvl) {
+                seqArr.push(Math.floor(Math.random() * 9));
+            }
+            seqPlayerStep = 0;
+            seqPlaying = true;
+            playSequence();
+        }
+
+        function playSequence() {
+            let step = 0;
+            const playNext = () => {
+                const id = seqArr[step];
+                const btn = seqGrid.children[id];
+                btn.classList.add('tile-active', 'bloom');
+                setTimeout(() => {
+                    btn.classList.remove('tile-active', 'bloom');
+                    step++;
+                    if (step >= seqArr.length) {
+                        seqPlaying = false;
+                    } else {
+                        seqTimeout = setTimeout(playNext, 400);
+                    }
+                }, 800);
+            };
+            seqTimeout = setTimeout(playNext, 400);
+        }
+
+        function handleSeqClick(id) {
+            if (seqPlaying || currentMode !== 'memory-sequence') return;
+            const btn = seqGrid.children[id];
+            btn.classList.add('tile-active', 'bloom', 'opacity-70');
+            setTimeout(() => btn.classList.remove('tile-active', 'bloom', 'opacity-70'), 150);
+
+            if (id === seqArr[seqPlayerStep]) {
+                seqPlayerStep++;
+                if (seqPlayerStep === seqArr.length) {
+                    levelUp('memory-sequence');
+                    seqPlaying = true;
+                    setTimeout(startSeqLevel, 500);
+                }
+            } else {
+                gameOver(1500, () => { seqArr = []; });
+            }
+        }
+
+        let patActive = [], patClicked = 0, patSize = 3, patTimeout = null, isPatInputPhase = false;
+
+        const patLvl = initLevelSelector('pat', 'memory-pattern', startPatLevel, 'Pattern', 'Recall the layout');
+
+        function startPatLevel() {
+            patLevel.innerText = `Level ${globalScores['memory-pattern'].level}`;
+            isPatInputPhase = false;
+            patClicked = 0;
+
+            const lvl = globalScores['memory-pattern'].level;
+            patSize = lvl < 5 ? 3 : (lvl < 10 ? 4 : 5);
+            patGrid.style.gridTemplateColumns = `repeat(${patSize}, minmax(0, 1fr))`;
+
+            const totalTiles = patSize * patSize;
+            const activeCount = Math.floor(lvl * 0.5) + 2;
+
+            patActive = [];
+            while (patActive.length < activeCount && patActive.length < totalTiles) {
+                const r = Math.floor(Math.random() * totalTiles);
+                if (!patActive.includes(r)) patActive.push(r);
+            }
+
+            patGrid.innerHTML = '';
+            for (let i = 0; i < totalTiles; i++) {
+                const btn = document.createElement('div');
+                btn.className = 'aspect-square rounded-xl glass transition-all duration-200 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 active:scale-95';
+                btn.dataset.id = i;
+                btn.addEventListener('mousedown', () => handlePatClick(btn, i));
+                patGrid.appendChild(btn);
+            }
+
+            setTimeout(() => {
+                patActive.forEach(id => {
+                    patGrid.children[id].classList.add('tile-active', 'bloom');
+                });
+
+                patTimeout = setTimeout(() => {
+                    Array.from(patGrid.children).forEach(btn => btn.classList.remove('tile-active', 'bloom'));
+                    isPatInputPhase = true;
+                }, 1200 + (activeCount * 100)); // Base display time + scaling per active tile
+            }, 500);
+        }
+
+        function handlePatClick(btn, id) {
+            if (!isPatInputPhase || currentMode !== 'memory-pattern' || btn.classList.contains('tile-active')) return;
+
+            if (patActive.includes(id)) {
+                btn.classList.add('tile-active', 'bloom', 'scale-95');
+                patClicked++;
+                if (patClicked === patActive.length) {
+                    isPatInputPhase = false;
+                    levelUp('memory-pattern');
+                    setTimeout(startPatLevel, 1000);
+                }
+            } else {
+                btn.classList.remove('glass'); btn.classList.add('bg-red-500');
+                patActive.forEach(a => {
+                    if (!patGrid.children[a].classList.contains('tile-active')) {
+                        patGrid.children[a].classList.remove('glass');
+                        patGrid.children[a].classList.add('tile-active', 'bloom');
+                    }
+                });
+                isPatInputPhase = false;
+                setTimeout(resetGameLogic, 2000);
+            }
+        }
+
+        let digValue = '';
+
+        const digLvl = initLevelSelector('dig', 'memory-digit', startDigLevel, 'Digit Span', 'Remember the numbers');
+
+        function startDigLevel() {
+            digShowScreen.classList.remove('opacity-0', 'pointer-events-none');
+            digInputScreen.classList.add('opacity-0', 'pointer-events-none');
+
+            const len = globalScores['memory-digit'].level + 2;
+            digValue = Array.from({ length: len }, () => Math.floor(Math.random() * 10)).join('');
+            digDisplay.innerText = digValue;
+
+            const time = 1000 + (len * 400); // Base duration + 400ms per digit extension
+            digTimer.style.transition = 'none';
+            digTimer.style.transform = 'scaleX(1)';
+
+            setTimeout(() => {
+                digTimer.style.transition = `transform ${time}ms linear`;
+                digTimer.style.transform = 'scaleX(0)';
+            }, 50);
+
+            clearTimeout(seqTimeout);
+            seqTimeout = setTimeout(() => {
+                digShowScreen.classList.add('opacity-0', 'pointer-events-none');
+                digInputScreen.classList.remove('opacity-0', 'pointer-events-none');
+                digInput.value = '';
+                setTimeout(() => digInput.focus(), 100);
+            }, time + 50);
+        }
+
+        $('btn-submit-dig').addEventListener('click', checkDigit);
+        digInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') checkDigit();
+        });
+
+        function checkDigit() {
+            if (currentMode !== 'memory-digit') return;
+            if (digInput.value.trim() === digValue) {
+                levelUp('memory-digit');
+                startDigLevel();
+            } else {
+                gameOver(1500);
+            }
+        }
+
+        let chimpNumbers = [], chimpNext = 1, chimpHidden = false;
+        const chimpLvl = initLevelSelector('chimp', 'memory-chimp', startChimpLevel, 'Chimp Test', 'Numbers vanish after first click');
+
+        function getChimpGridSize(count) {
+            if (count <= 9) return 5;
+            if (count <= 16) return 6;
+            if (count <= 25) return 7;
+            return 8;
+        }
+
+        function startChimpLevel() {
+            const count = globalScores['memory-chimp'].level + 3;
+            const gridSize = getChimpGridSize(count);
+            const totalCells = gridSize * gridSize;
+            chimpLevel.innerText = `Level ${globalScores['memory-chimp'].level}`;
+            chimpGrid.style.gridTemplateColumns = `repeat(${gridSize}, minmax(0, 1fr))`;
+            chimpGrid.style.width = `${gridSize * 56 + (gridSize - 1) * 8}px`;
+            chimpGrid.innerHTML = '';
+
+            const positions = [];
+            while (positions.length < count) {
+                const p = Math.floor(Math.random() * totalCells);
+                if (!positions.includes(p)) positions.push(p);
+            }
+
+            chimpNumbers = new Array(totalCells).fill(0);
+            positions.forEach((pos, i) => { chimpNumbers[pos] = i + 1; });
+            chimpNext = 1;
+            chimpHidden = false;
+
+            for (let i = 0; i < totalCells; i++) {
+                const tile = document.createElement('div');
+                tile.className = 'chimp-tile glass';
+                const num = chimpNumbers[i];
+                if (num > 0) {
+                    tile.textContent = num;
+                    tile.dataset.num = num;
+                } else {
+                    tile.style.visibility = 'hidden';
+                }
+                tile.addEventListener('mousedown', () => handleChimpClick(tile, i));
+                chimpGrid.appendChild(tile);
+            }
+        }
+
+        function handleChimpClick(tile, idx) {
+            if (currentMode !== 'memory-chimp') return;
+            const num = chimpNumbers[idx];
+            if (num === 0 || tile.classList.contains('correct')) return;
+
+            if (num === chimpNext) {
+                tile.classList.add('correct', 'bloom');
+                tile.textContent = num;
+                if (num === 1 && !chimpHidden) {
+                    chimpHidden = true;
+                    Array.from(chimpGrid.children).forEach(t => {
+                        if (!t.classList.contains('correct') && t.dataset.num) t.textContent = '';
+                    });
+                }
+                chimpNext++;
+                if (chimpNext > globalScores['memory-chimp'].level + 3) {
+                    levelUp('memory-chimp');
+                    clearTimeout(chimpTimeout);
+                    chimpTimeout = setTimeout(startChimpLevel, 600);
+                }
+            } else {
+                tile.classList.add('wrong');
+                tile.textContent = num;
+                Array.from(chimpGrid.children).forEach(t => {
+                    if (t.dataset.num && !t.classList.contains('correct')) {
+                        t.textContent = t.dataset.num;
+                        t.classList.add('wrong');
+                    }
+                });
+                gameOver(1500);
+            }
+        }
+
+        let verbalSeen = new Set(), verbalScore = 0, verbalLives = 3, verbalCurrent = "";
+
+        $('btn-start-verbal').onclick = () => {
+            verbalStartScreen.classList.add('opacity-0', 'pointer-events-none');
+            verbalGameScreen.classList.remove('opacity-0', 'pointer-events-none');
+            verbalSeen.clear(); verbalScore = 0; verbalLives = 3;
+            sfx.click();
+            nextVerbalWord();
+            updateVerbalUI();
+        };
+
+        function updateVerbalUI() {
+            verbalLivesDisp.innerText = verbalLives;
+            verbalScoreDisp.innerText = verbalScore;
+            verbalWordDisp.innerText = verbalCurrent;
+        }
+
+        function nextVerbalWord() {
+            if (verbalSeen.size > 3 && Math.random() < 0.5) {
+                const arr = Array.from(verbalSeen);
+                verbalCurrent = arr[Math.floor(Math.random() * arr.length)];
+            } else {
+                verbalCurrent = dictionary[Math.floor(Math.random() * dictionary.length)];
+            }
+            updateVerbalUI();
+        }
+
+        function handleVerbal(seenChoice) {
+            const isSeen = verbalSeen.has(verbalCurrent);
+            if (seenChoice === isSeen) {
+                verbalScore++;
+                sfx.click();
+            } else {
+                verbalLives--;
+                sfx.fail();
+            }
+            verbalSeen.add(verbalCurrent);
+            if (verbalLives <= 0) {
+                globalScores['verbal-memory'].scores.push(verbalScore);
+                updateStatsUI();
+                gameOver(1500);
+            } else {
+                nextVerbalWord();
+            }
+        }
+
+        $('btn-verbal-seen').onclick = () => handleVerbal(true);
+        $('btn-verbal-new').onclick = () => handleVerbal(false);
+
+        const dictionary = "the be of and a to in he have it that for they with as not on she at by this we you do but from or which one would all will there say who make when can more if no man out other so what time up go about than into could state only new year some take come these know see use get like then first any work now may such give over think most even find day also after way many must look before great back through long where much should well people down own just because good each those feel seem how high too place little world very still nation hand old life tell write become here show house both between need mean call develop under last right move thing general school never same another begin while number part turn real leave might want point form off child few small since against ask late home interest large person end open public follow during present without again hold govern around possible head consider word program problem however lead system set order eye plan run keep face fact group play stand increase early course change help line".split(" ");
+        let typeStr = '', typeCurrentIdx = 0, typeStartTime = 0, typeTimerStarted = false, typeWpmInterval, typeKeystrokes = [];
+
+        function updateLiveWpm() {
+            if (!typeTimerStarted) return;
+            const now = performance.now();
+            const timeSec = (now - typeStartTime) / 1000;
+
+            if (typeMode === 'time') {
+                const remaining = Math.max(0, Math.ceil(typeWordCount - timeSec));
+                typeLiveTimer.innerText = remaining;
+                if (remaining <= 0) {
+                    finishTypingTest();
+                    return;
+                }
+            }
+
+            if (timeSec < 0.5) return;
+
+            // Rolling 2s window for instant WPM display
+            typeKeystrokes = typeKeystrokes.filter(t => now - t < 2000);
+            let instWpm = 0;
+            if (typeKeystrokes.length >= 2) {
+                let spanSec = (now - typeKeystrokes[0]) / 1000;
+                if (spanSec < 0.5) spanSec = 0.5;
+                instWpm = Math.round((typeKeystrokes.length / 5) / (spanSec / 60));
+            }
+            typeLiveWpm.innerText = instWpm;
+
+            const currentRoundWpm = Math.max(0, Math.round((typeCurrentIdx / 5) / (timeSec / 60)));
+            const liveBest = globalScores.typing.scores.length > 0 ? Math.max(...globalScores.typing.scores) : 0;
+            setStat(stat1Value, currentRoundWpm, 'wpm'); setStat(stat2Value, liveBest, 'wpm');
+        }
+
+        function updateSmoothCaret() {
+            const caret = $('type-smooth-caret');
+            if (!caret) return;
+
+            if (typeCurrentIdx >= typeWordsContainer.children.length - 1) {
+                caret.style.opacity = '0';
+                return;
+            }
+
+            const activeSpan = typeWordsContainer.children[typeCurrentIdx + 1];
+            caret.style.transform = `translate(${activeSpan.offsetLeft}px, ${activeSpan.offsetTop}px)`;
+
+            caret.style.animation = 'none';
+            caret.offsetHeight;
+            caret.style.animation = 'blinkCaret 1s step-end infinite';
+        }
+
+        let typeWordCount = 15;
+        let typeMode = 'words';
+
+        const ACT_CLS = ['bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-slate-800', 'dark:text-slate-200'];
+        function toggleActive(selector, active) {
+            document.querySelectorAll(selector).forEach(b => { b.classList.remove(...ACT_CLS); });
+            active.classList.add(...ACT_CLS);
+        }
+
+        function attachLenBtnEvents() {
+            document.querySelectorAll('.type-len-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    toggleActive('.type-len-btn', e.currentTarget);
+                    typeWordCount = parseInt(e.currentTarget.dataset.len);
+                });
+            });
+        }
+        attachLenBtnEvents();
+
+        document.querySelectorAll('.type-mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const el = e.currentTarget;
+                if (el.dataset.mode === typeMode) return;
+                toggleActive('.type-mode-btn', el);
+
+                typeMode = el.dataset.mode;
+                const configVals = document.getElementById('type-config-vals');
+                const vals = typeMode === 'time' ? [15, 30, 60, 120] : [15, 30, 60, 100];
+                const active = 'text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700 shadow-sm';
+                const inactive = 'hover:text-slate-800 dark:hover:text-slate-200';
+                configVals.innerHTML = vals.map((v, i) =>
+                    `<button class="type-len-btn px-4 py-1.5 rounded-full ${i === 0 ? active : inactive} transition-all" data-len="${v}">${v}</button>`
+                ).join('');
+                typeWordCount = 15;
+                attachLenBtnEvents();
+            });
+        });
+
+        $('btn-start-type').addEventListener('click', () => {
+            typeStartScreen.classList.add('hidden');
+            typeGameScreen.classList.remove('absolute', 'inset-0', 'opacity-0', 'pointer-events-none');
+            typeGameScreen.classList.add('relative', 'opacity-100');
+
+            let words = [];
+            let count = typeMode === 'time' ? 50 : typeWordCount;
+            for (let i = 0; i < count; i++) {
+                words.push(dictionary[Math.floor(Math.random() * dictionary.length)]);
+            }
+            typeStr = words.join(' ');
+
+            typeWordsContainer.innerHTML = '';
+
+            const caret = document.createElement('div');
+            caret.id = 'type-smooth-caret';
+            caret.className = 'absolute left-0 top-[6px] w-[2px] h-[30px] bg-slate-800 dark:bg-slate-200 transition-transform duration-[100ms] ease-out pointer-events-none rounded-full';
+            caret.style.animation = 'blinkCaret 1s step-end infinite';
+            typeWordsContainer.appendChild(caret);
+
+            typeStr.split('').forEach((char, idx) => {
+                const span = document.createElement('span');
+                span.textContent = char;
+                span.className = 'transition-colors duration-75';
+                typeWordsContainer.appendChild(span);
+            });
+
+            typeCurrentIdx = 0;
+            typeTimerStarted = false;
+            clearInterval(typeWpmInterval);
+            typeLiveWpm.innerText = '0';
+
+            if (typeMode === 'time') {
+                typeLiveTimer.classList.remove('hidden');
+                typeTimerLabel.classList.remove('hidden');
+                typeLiveTimer.innerText = typeWordCount;
+            } else {
+                typeLiveTimer.classList.add('hidden');
+                typeTimerLabel.classList.add('hidden');
+            }
+
+            // Initialize caret position
+            setTimeout(updateSmoothCaret, 50);
+            typeKeystrokes = [];
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && currentMode === 'reaction' && document.activeElement !== digInput) {
+                e.preventDefault();
+                viewReaction.dispatchEvent(new Event('mousedown'));
+            } else if (e.code === 'Tab') {
+                e.preventDefault();
+                resetSession();
+            } else if (currentMode === 'typing') {
+                if (typeGameScreen.classList.contains('opacity-0')) return;
+
+                if (e.key === 'Backspace') {
+                    if (typeCurrentIdx > 0) {
+                        typeCurrentIdx--;
+                        const prevSpan = typeWordsContainer.children[typeCurrentIdx + 1];
+                        prevSpan.className = 'transition-colors duration-75';
+                        updateSmoothCaret();
+                    }
+                    return;
+                }
+
+                if (e.key.length !== 1) return;
+
+                // no scroll
+                if (e.key === ' ') e.preventDefault();
+
+                if (!typeTimerStarted) {
+                    typeTimerStarted = true;
+                    typeStartTime = performance.now();
+                    typeGameHeader.classList.remove('opacity-0');
+                    typeWpmInterval = setInterval(updateLiveWpm, 200);
+                }
+
+                if (e.key === typeStr[typeCurrentIdx]) {
+                    typeWordsContainer.children[typeCurrentIdx + 1].classList.add('text-slate-800', 'dark:text-slate-200');
+                    typeKeystrokes.push(performance.now());
+                } else {
+                    typeWordsContainer.children[typeCurrentIdx + 1].classList.add('text-red-500');
+                    if (typeStr[typeCurrentIdx] === ' ') typeWordsContainer.children[typeCurrentIdx + 1].classList.add('bg-red-500/20');
+                }
+
+                typeCurrentIdx++;
+
+                // Load more words ahead of cursor to prevent end-of-line stutter
+                if (typeMode === 'time' && typeCurrentIdx > typeStr.length - 20) {
+                    let newWords = [];
+                    for (let i = 0; i < 30; i++) {
+                        newWords.push(dictionary[Math.floor(Math.random() * dictionary.length)]);
+                    }
+                    const newStr = ' ' + newWords.join(' ');
+                    newStr.split('').forEach(char => {
+                        const span = document.createElement('span');
+                        span.textContent = char;
+                        span.className = 'transition-colors duration-75';
+                        typeWordsContainer.appendChild(span);
+                    });
+                    typeStr += newStr;
+                }
+
+                if (typeCurrentIdx < typeStr.length) {
+                    updateSmoothCaret();
+                    updateLiveWpm();
+                } else {
+                    finishTypingTest();
+                }
+            }
+        });
+
+        function finishTypingTest() {
+            clearInterval(typeWpmInterval);
+            const timeSec = (performance.now() - typeStartTime) / 1000;
+            // Standard WPM: (characters/5) / (minutes elapsed)
+            const wpm = Math.round((typeCurrentIdx / 5) / (timeSec / 60));
+
+            globalScores.typing.scores.push(wpm);
+            updateStatsUI();
+
+            document.body.classList.add('state-result');
+            flashScreen();
+
+            setTimeout(() => {
+                document.body.classList.remove('state-result');
+                resetGameLogic();
+            }, 1000);
+        }
+
+        let cpsClicks = 0, cpsStarted = false, cpsStartTime = 0, cpsDuration = 5, cpsInterval;
+
+        $('btn-start-cps').addEventListener('click', () => {
+            cpsStartScreen.classList.add('opacity-0', 'pointer-events-none');
+            cpsGameScreen.classList.remove('opacity-0', 'pointer-events-none');
+            cpsClicks = 0;
+            cpsStarted = false;
+            cpsClickCount.innerText = '0';
+            cpsLiveTimer.innerText = cpsDuration.toFixed(1);
+            cpsLiveCps.innerText = '0.0';
+        });
+
+        function endCpsTest() {
+            clearInterval(cpsInterval);
+            cpsStarted = false;
+            const finalCps = cpsClicks / cpsDuration;
+            globalScores.cps.scores.push(finalCps);
+            updateStatsUI();
+
+            document.body.classList.add('state-result');
+            flashScreen();
+
+            setTimeout(() => {
+                document.body.classList.remove('state-result');
+                resetGameLogic();
+            }, 1500);
+        }
+
+        cpsClickArea.addEventListener('mousedown', (e) => {
+            if (currentMode !== 'cps') return;
+
+            // Visual click feedback
+            cpsClickArea.classList.add('opacity-70', 'scale-[0.96]');
+            setTimeout(() => cpsClickArea.classList.remove('opacity-70', 'scale-[0.96]'), 50);
+
+            if (!cpsStarted) {
+                cpsStarted = true;
+                cpsStartTime = performance.now();
+                sfx.click();
+
+                cpsInterval = setInterval(() => {
+                    const elapsed = (performance.now() - cpsStartTime) / 1000;
+                    const remaining = Math.max(0, cpsDuration - elapsed);
+                    cpsLiveTimer.innerText = remaining.toFixed(1);
+
+                    if (elapsed > 0) {
+                        cpsLiveCps.innerText = (cpsClicks / elapsed).toFixed(1);
+                    }
+
+                    if (remaining <= 0) {
+                        endCpsTest();
+                    }
+                }, 50);
+            }
+
+            if (cpsStarted) {
+                cpsClicks++;
+                sfx.click();
+                cpsClickCount.innerText = cpsClicks;
+            }
+        });
+        let aimState = 'START', aimTargets = [], aimClicks = [], aimScore = 0, aimStart = 0;
+        const aimCanvas = $('aim-canvas'), aimCtx = aimCanvas.getContext('2d');
+        const aimSizeSlider = $('aim-size-slider'), aimMovingToggle = $('aim-moving-toggle'), aimSpeedSlider = $('aim-speed-slider');
+        const aimSizePreview = $('aim-size-preview'), aimPreviewBox = $('aim-preview-box');
+
+        let previewPos = { x: 96, y: 96, vx: 2, vy: 2 };
+        function updateAimPreview() {
+            const size = parseInt(aimSizeSlider.value);
+            const speed = parseInt(aimSpeedSlider.value);
+            const moving = aimMovingToggle.checked;
+
+            aimSizePreview.style.width = size + 'px';
+            aimSizePreview.style.height = size + 'px';
+
+            if (moving && speed > 0) {
+                previewPos.x += previewPos.vx * (speed / 5);
+                previewPos.y += previewPos.vy * (speed / 5);
+
+                const limit = 192;
+                if (previewPos.x < size / 2 || previewPos.x > limit - size / 2) previewPos.vx *= -1;
+                if (previewPos.y < size / 2 || previewPos.y > limit - size / 2) previewPos.vy *= -1;
+
+                aimSizePreview.style.left = previewPos.x + 'px';
+                aimSizePreview.style.top = previewPos.y + 'px';
+                aimSizePreview.style.transform = 'translate(-50%, -50%)';
+            } else {
+                aimSizePreview.style.left = '50%';
+                aimSizePreview.style.top = '50%';
+                aimSizePreview.style.transform = 'translate(-50%, -50%)';
+            }
+            requestAnimationFrame(updateAimPreview);
+        }
+        updateAimPreview();
+
+        function resizeAim() {
+            const rect = aimCanvas.parentElement.getBoundingClientRect();
+            aimCanvas.width = rect.width;
+            aimCanvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeAim);
+
+        function spawnAimTarget() {
+            const r = parseInt(aimSizeSlider.value);
+            const speed = parseInt(aimSpeedSlider.value);
+            const x = r + Math.random() * (aimCanvas.width - r * 2);
+            const y = r + Math.random() * (aimCanvas.height - r * 2);
+            aimTargets.push({
+                x, y, r,
+                vx: aimMovingToggle.checked ? (Math.random() - 0.5) * speed * 2 : 0,
+                vy: aimMovingToggle.checked ? (Math.random() - 0.5) * speed * 2 : 0
+            });
+        }
+
+        $('btn-start-aim').onclick = () => {
+            aimState = 'PLAYING';
+            $('aim-start-screen').classList.add('opacity-0', 'pointer-events-none');
+            $('aim-game-screen').classList.remove('hidden');
+            resizeAim();
+            aimScore = 0;
+            aimTargets = [];
+            aimClicks = [];
+            for (let i = 0; i < 3; i++) spawnAimTarget();
+            aimStart = performance.now();
+            loopAim();
+        };
+
+        aimCanvas.onmousedown = (e) => {
+            if (aimState !== 'PLAYING') return;
+            const rect = aimCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            let hit = false;
+            for (let i = aimTargets.length - 1; i >= 0; i--) {
+                const t = aimTargets[i];
+                const dx = mx - t.x;
+                const dy = my - t.y;
+                if (dx * dx + dy * dy <= t.r * t.r) { // Radius collision check
+                    aimTargets.splice(i, 1);
+                    aimScore++;
+                    spawnAimTarget();
+                    sfx.click();
+                    $('aim-score-live').innerText = aimScore;
+                    hit = true;
+                    break;
+                }
+            }
+            // Feedback for hits (white) or misses (red)
+            aimClicks.push({ x: mx, y: my, r: 5, maxR: 20, life: 1.0, color: hit ? '255,255,255' : '239,68,68' });
+        };
+
+        function loopAim() {
+            if (aimState !== 'PLAYING') return;
+            const elapsed = (performance.now() - aimStart) / 1000;
+            const remaining = Math.max(0, 30 - elapsed);
+            $('aim-time-live').innerText = remaining.toFixed(1);
+
+            aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
+            aimCtx.fillStyle = '#ef4444';
+
+            aimTargets.forEach(t => {
+                t.x += t.vx;
+                t.y += t.vy;
+                if (t.x < t.r || t.x > aimCanvas.width - t.r) t.vx *= -1;
+                if (t.y < t.r || t.y > aimCanvas.height - t.r) t.vy *= -1;
+
+                aimCtx.beginPath();
+                aimCtx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+                aimCtx.fill();
+            });
+
+            // Draw click feedback
+            for (let i = aimClicks.length - 1; i >= 0; i--) {
+                const c = aimClicks[i];
+                aimCtx.beginPath();
+                aimCtx.strokeStyle = `rgba(${c.color}, ${c.life})`;
+                aimCtx.lineWidth = 2;
+                aimCtx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+                aimCtx.stroke();
+
+                c.r += (c.maxR - c.r) * 0.1;
+                c.life -= 0.05;
+                if (c.life <= 0) aimClicks.splice(i, 1);
+            }
+
+            if (remaining <= 0) {
+                aimState = 'RESULT';
+                globalScores.aim.scores.push(aimScore);
+                updateStatsUI();
+                mainContainer.classList.remove('flow-state');
+                gameOver(4000, () => {
+                    rxMs.innerText = aimScore;
+                    rxMainText.innerText = 'Targets Hit';
+                    document.body.classList.add('state-result');
+                });
+            } else {
+                aimAnimationId = requestAnimationFrame(loopAim);
+            }
+        }
+
+        // tracking
+        let trackState = 'START', trackTarget = { x: 0, y: 0, r: 25, vx: 5, vy: 5 }, trackScore = 0, trackStart = 0, trackAnimId;
+        const trackCanvas = $('track-canvas'), trackCtx = trackCanvas.getContext('2d');
+        let mouseX = 0, mouseY = 0;
+
+        $('btn-start-track').onclick = () => {
+            trackState = 'PLAYING';
+            $('track-start-screen').classList.add('opacity-0', 'pointer-events-none');
+            $('track-game-screen').classList.remove('hidden');
+            trackCanvas.width = trackCanvas.parentElement.offsetWidth;
+            trackCanvas.height = trackCanvas.parentElement.offsetHeight;
+            trackTarget.x = trackCanvas.width / 2;
+            trackTarget.y = trackCanvas.height / 2;
+            trackScore = 0; trackStart = performance.now();
+            sfx.click();
+            loopTrack();
+        };
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = trackCanvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        function loopTrack() {
+            if (trackState !== 'PLAYING') return;
+            const elapsed = (performance.now() - trackStart) / 1000;
+            const remaining = Math.max(0, 30 - elapsed);
+            $('track-time-live').innerText = remaining.toFixed(1);
+
+            trackCtx.clearRect(0, 0, trackCanvas.width, trackCanvas.height);
+
+            // Move target
+            trackTarget.x += trackTarget.vx;
+            trackTarget.y += trackTarget.vy;
+            if (trackTarget.x < trackTarget.r || trackTarget.x > trackCanvas.width - trackTarget.r) trackTarget.vx *= -1;
+            if (trackTarget.y < trackTarget.r || trackTarget.y > trackCanvas.height - trackTarget.r) trackTarget.vy *= -1;
+
+            // Random jitter
+            if (Math.random() < 0.05) {
+                trackTarget.vx += (Math.random() - 0.5) * 4;
+                trackTarget.vy += (Math.random() - 0.5) * 4;
+            }
+
+            const dx = mouseX - trackTarget.x, dy = mouseY - trackTarget.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const onTarget = dist <= trackTarget.r;
+            if (onTarget) trackScore += 16.67; // Approx ms per frame at 60fps
+
+            trackCtx.beginPath();
+            trackCtx.fillStyle = onTarget ? '#22c55e' : '#ef4444';
+            trackCtx.globalAlpha = 0.6;
+            trackCtx.arc(trackTarget.x, trackTarget.y, trackTarget.r, 0, Math.PI * 2);
+            trackCtx.fill();
+            trackCtx.globalAlpha = 1;
+
+            $('track-acc-live').innerText = Math.round(trackScore) + 'ms';
+
+            if (remaining <= 0) {
+                trackState = 'RESULT';
+                globalScores.tracking.scores.push(trackScore);
+                updateStatsUI();
+                gameOver(2000, () => {
+                    rxMs.innerText = Math.round(trackScore);
+                    rxMainText.innerText = 'Time on Target';
+                    document.body.classList.add('state-result');
+                });
+            } else {
+                trackAnimId = requestAnimationFrame(loopTrack);
+            }
+        }
+
+        // displacement
+        let dispState = 'IDLE', dispTarget = { x: 0, y: 0, r: 20 }, dispReset = { x: 0, y: 0, r: 40 };
+        let dispStart = 0, dispAttempts = 0, dispTotalErr = 0;
+        const dispCanvas = $('disp-canvas'), dispCtx = dispCanvas.getContext('2d');
+
+        $('btn-start-disp').onclick = () => {
+            $('disp-start-screen').classList.add('opacity-0', 'pointer-events-none');
+            $('disp-game-screen').classList.remove('hidden');
+            dispCanvas.width = dispCanvas.parentElement.offsetWidth;
+            dispCanvas.height = dispCanvas.parentElement.offsetHeight;
+            dispAttempts = 0; dispTotalErr = 0;
+            sfx.click();
+            startDispRound();
+        };
+
+        function startDispRound() {
+            dispState = 'SHOWING';
+            $('disp-msg').innerText = 'Memorize Position';
+            dispTarget.x = 100 + Math.random() * (dispCanvas.width - 200);
+            dispTarget.y = 100 + Math.random() * (dispCanvas.height - 200);
+
+            drawDisp();
+            clearTimeout(dispTimeout);
+            dispTimeout = setTimeout(() => {
+                dispState = 'RESETTING';
+                $('disp-msg').innerText = 'Move to Reset Zone';
+                // Spawn reset zone far from target
+                dispReset.x = dispTarget.x > dispCanvas.width / 2 ? 100 + Math.random() * 200 : dispCanvas.width - 300 + Math.random() * 200;
+                dispReset.y = dispTarget.y > dispCanvas.height / 2 ? 100 + Math.random() * 200 : dispCanvas.height - 300 + Math.random() * 200;
+                drawDisp();
+            }, 1000);
+        }
+
+        function drawDisp() {
+            dispCtx.clearRect(0, 0, dispCanvas.width, dispCanvas.height);
+            if (dispState === 'SHOWING') {
+                dispCtx.beginPath();
+                dispCtx.fillStyle = '#3b82f6';
+                dispCtx.arc(dispTarget.x, dispTarget.y, dispTarget.r, 0, Math.PI * 2);
+                dispCtx.fill();
+            } else if (dispState === 'RESETTING') {
+                dispCtx.beginPath();
+                dispCtx.strokeStyle = '#64748b';
+                dispCtx.setLineDash([5, 5]);
+                dispCtx.arc(dispReset.x, dispReset.y, dispReset.r, 0, Math.PI * 2);
+                dispCtx.stroke();
+                dispCtx.setLineDash([]);
+                dispCtx.fillStyle = '#64748b';
+                dispCtx.globalAlpha = 0.1;
+                dispCtx.fill();
+                dispCtx.globalAlpha = 1;
+            }
+        }
+
+        dispCanvas.onmousemove = (e) => {
+            if (dispState !== 'RESETTING') return;
+            const rect = dispCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            const dx = mx - dispReset.x, dy = my - dispReset.y;
+            if (Math.sqrt(dx * dx + dy * dy) < dispReset.r) {
+                dispState = 'WAITING';
+                $('disp-msg').innerText = 'Click original position';
+                sfx.click();
+                drawDisp();
+            }
+        };
+
+        dispCanvas.onmousedown = (e) => {
+            if (dispState !== 'WAITING') return;
+            const rect = dispCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            const dx = mx - dispTarget.x, dy = my - dispTarget.y;
+            const err = Math.sqrt(dx * dx + dy * dy);
+
+            dispTotalErr += err;
+            dispAttempts++;
+
+            dispCtx.beginPath();
+            dispCtx.setLineDash([5, 5]);
+            dispCtx.strokeStyle = '#64748b';
+            dispCtx.moveTo(mx, my);
+            dispCtx.lineTo(dispTarget.x, dispTarget.y);
+            dispCtx.stroke();
+            dispCtx.setLineDash([]);
+
+            dispCtx.beginPath();
+            dispCtx.fillStyle = '#22c55e';
+            dispCtx.arc(dispTarget.x, dispTarget.y, dispTarget.r, 0, Math.PI * 2);
+            dispCtx.fill();
+
+            dispState = 'RESULT';
+            if (err < 20) sfx.success(); else sfx.click();
+
+            if (dispAttempts >= 5) {
+                const finalAvg = dispTotalErr / 5;
+                globalScores.displacement.scores.push(finalAvg);
+                updateStatsUI();
+                gameOver(2000, () => {
+                    rxMs.innerText = Math.round(finalAvg);
+                    rxMainText.innerText = 'Average Error (px)';
+                    document.body.classList.add('state-result');
+                });
+            } else {
+                clearTimeout(dispTimeout);
+                dispTimeout = setTimeout(startDispRound, 1500);
+            }
+        };
+
+        // stroop
+        const stroopWord = $('stroop-word'), stroopColors = ['red', 'blue', 'emerald', 'amber'];
+        const stroopNames = { red: 'Red', blue: 'Blue', emerald: 'Green', amber: 'Yellow' };
+        let stroopStart = 0, stroopCorrect = 0, stroopInk = '', stroopResults = [];
+
+        $('btn-start-stroop').onclick = () => {
+            $('stroop-start-screen').classList.add('opacity-0', 'pointer-events-none');
+            $('stroop-game-screen').classList.remove('opacity-0', 'pointer-events-none');
+            stroopCorrect = 0; stroopResults = [];
+            sfx.click();
+            nextStroop();
+        };
+
+        function nextStroop() {
+            const nameColor = stroopColors[Math.floor(Math.random() * 4)];
+            stroopInk = stroopColors[Math.floor(Math.random() * 4)];
+            stroopWord.innerText = stroopNames[nameColor];
+            stroopWord.className = `text-8xl font-black mb-24 tracking-tighter transition-all duration-150 text-${stroopInk}-500`;
+            stroopStart = performance.now();
+        }
+
+        document.querySelectorAll('.stroop-btn').forEach(btn => {
+            btn.onclick = () => {
+                if (currentMode !== 'stroop') return;
+                const choice = btn.dataset.color;
+                const time = performance.now() - stroopStart;
+                if (choice === stroopInk) {
+                    stroopResults.push(time);
+                    stroopCorrect++;
+                    sfx.click();
+                    if (stroopCorrect >= 15) {
+                        const avg = stroopResults.reduce((a, b) => a + b) / 15;
+                        globalScores.stroop.scores.push(avg);
+                        updateStatsUI();
+                        gameOver(2000, () => {
+                            rxMs.innerText = Math.round(avg);
+                            rxMainText.innerText = 'Avg Reaction (ms)';
+                            document.body.classList.add('state-result');
+                        });
+                    } else {
+                        nextStroop();
+                    }
+                } else {
+                    gameOver(1500);
+                }
+            };
+        });
+
+        // schulte
+        let schulteNext = 1, schulteStart = 0;
+        const schulteGrid = $('schulte-grid');
+
+        $('btn-start-schulte').onclick = () => {
+            $('schulte-start-screen').classList.add('opacity-0', 'pointer-events-none');
+            $('schulte-game-screen').classList.remove('opacity-0', 'pointer-events-none');
+            schulteNext = 1;
+            sfx.click();
+            initSchulte();
+        };
+
+        function initSchulte() {
+            const nums = Array.from({ length: 25 }, (_, i) => i + 1).sort(() => Math.random() - 0.5);
+            schulteGrid.innerHTML = '';
+            nums.forEach(n => {
+                const btn = document.createElement('div');
+                btn.className = 'aspect-square glass rounded-xl flex items-center justify-center font-bold text-lg cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all';
+                btn.innerText = n;
+                btn.onclick = () => {
+                    if (n === schulteNext) {
+                        btn.classList.add('bg-ready-color', 'text-white', 'opacity-30', 'pointer-events-none');
+                        schulteNext++;
+                        sfx.click();
+                        if (schulteNext === 2) schulteStart = performance.now();
+                        if (schulteNext > 25) {
+                            const time = performance.now() - schulteStart;
+                            globalScores.schulte.scores.push(time);
+                            updateStatsUI();
+                            gameOver(2000, () => {
+                                rxMs.innerText = Math.round(time);
+                                rxMainText.innerText = 'Completion Time';
+                                document.body.classList.add('state-result');
+                            });
+                        }
+                    } else {
+                        sfx.fail();
+                        btn.classList.add('bg-red-500', 'text-white');
+                        setTimeout(() => btn.classList.remove('bg-red-500', 'text-white'), 200);
+                    }
+                };
+                schulteGrid.appendChild(btn);
+            });
+        }
+
+        // projection
+        let projState = 'IDLE', projBall = { x: 0, y: 0, vx: 0, vy: 0, r: 12 }, projTunnel = { x: 0, w: 0 };
+        let projStart = 0, projAnimId, projAttempts = 0, projTotalErr = 0;
+        const projCanvas = $('proj-canvas'), projCtx = projCanvas.getContext('2d');
+
+        $('btn-start-proj').onclick = () => {
+            $('proj-start-screen').classList.add('opacity-0', 'pointer-events-none');
+            $('proj-game-screen').classList.remove('hidden');
+            projCanvas.width = projCanvas.parentElement.offsetWidth;
+            projCanvas.height = projCanvas.parentElement.offsetHeight;
+            projAttempts = 0; projTotalErr = 0;
+            sfx.click();
+            startProjRound();
+        };
+
+        function startProjRound() {
+            projState = 'VISIBLE';
+            $('proj-msg').innerText = 'Watch Velocity';
+            projBall.x = 0;
+            projBall.y = projCanvas.height * (0.3 + Math.random() * 0.4);
+            projBall.vx = 4 + Math.random() * 4;
+            projBall.vy = (Math.random() - 0.5) * 2;
+
+            projTunnel.w = projCanvas.width * 0.4;
+            projTunnel.x = projCanvas.width * 0.3;
+
+            projStart = performance.now();
+            loopProj();
+        }
+
+        function loopProj() {
+            if (projState === 'RESULT') return;
+            projCtx.clearRect(0, 0, projCanvas.width, projCanvas.height);
+
+            // Draw tunnel background (More opaque frosted look)
+            projCtx.fillStyle = 'rgba(100, 116, 139, 0.25)';
+            projCtx.fillRect(projTunnel.x, 0, projTunnel.w, projCanvas.height);
+
+            projBall.x += projBall.vx;
+            projBall.y += projBall.vy;
+
+            const inTunnel = projBall.x > projTunnel.x && projBall.x < projTunnel.x + projTunnel.w;
+            const pastTunnel = projBall.x >= projTunnel.x + projTunnel.w;
+
+            if (inTunnel && projState === 'VISIBLE') {
+                projState = 'HIDDEN';
+                $('proj-msg').innerText = 'Predict Exit';
+            } else if (pastTunnel && projState === 'HIDDEN') {
+                projState = 'EXITED';
+            }
+
+            // Draw ball before it enters or after it exits
+            if (projState === 'VISIBLE' || projState === 'EXITED') {
+                projCtx.beginPath();
+                projCtx.fillStyle = '#3b82f6';
+                projCtx.shadowBlur = 15;
+                projCtx.shadowColor = '#3b82f6';
+                projCtx.arc(projBall.x, projBall.y, projBall.r, 0, Math.PI * 2);
+                projCtx.fill();
+                projCtx.shadowBlur = 0;
+            }
+
+            if (projBall.x > projCanvas.width + 50) {
+                gameOver(1000); // Missed
+            } else {
+                projAnimId = requestAnimationFrame(loopProj);
+            }
+        }
+
+        projCanvas.onmousedown = () => {
+            if (projState !== 'HIDDEN' && projState !== 'EXITED') return;
+            const now = performance.now();
+            // Calculate where it SHOULD have been
+            const targetX = projTunnel.x + projTunnel.w;
+            const timeToExit = (targetX - (projBall.x - projBall.vx)) / projBall.vx;
+            // This is complex, let's just measure temporal error when they click at exit
+            const error = Math.abs(projBall.x - targetX);
+            const timeError = error / projBall.vx * 16.67; // approx ms
+
+            projState = 'RESULT';
+            projTotalErr += timeError;
+            projAttempts++;
+
+            // Reveal actual position
+            projCtx.beginPath();
+            projCtx.strokeStyle = '#ef4444';
+            projCtx.setLineDash([5, 5]);
+            projCtx.moveTo(projBall.x, projBall.y);
+            projCtx.lineTo(targetX, projBall.y);
+            projCtx.stroke();
+
+            projCtx.beginPath();
+            projCtx.fillStyle = '#22c55e';
+            projCtx.arc(projBall.x, projBall.y, projBall.r, 0, Math.PI * 2);
+            projCtx.fill();
+
+            if (timeError < 50) sfx.success(); else sfx.click();
+
+            if (projAttempts >= 5) {
+                const finalAvg = projTotalErr / 5;
+                globalScores.projection.scores.push(finalAvg);
+                updateStatsUI();
+                gameOver(2000, () => {
+                    rxMs.innerText = Math.round(finalAvg);
+                    rxMainText.innerText = 'Avg Timing Error (ms)';
+                    document.body.classList.add('state-result');
+                });
+            } else {
+                clearTimeout(projTimeout);
+                projTimeout = setTimeout(startProjRound, 1500);
+            }
+        };
+    </script>
+</body>
+
+</html>
