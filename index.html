@@ -31,24 +31,28 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --bg-color: #ffffff;
+            --bg-color: #f8fafc;
             --text-main: #0f172a;
             --text-muted: #64748b;
-            --glass-bg: rgba(15, 23, 42, 0.03);
-            --border-color: rgba(15, 23, 42, 0.08);
-            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.02);
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
             --waiting-color: #ef4444;
             --ready-color: #22c55e;
             --result-color: #3b82f6;
+            --input-bg: #f1f5f9;
+            --input-border: #e2e8f0;
         }
 
         .dark-mode {
-            --bg-color: #05070a;
-            --text-main: #ffffff;
+            --bg-color: #0f172a;
+            --text-main: #f8fafc;
             --text-muted: #94a3b8;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+            --input-bg: #0f172a;
+            --input-border: #334155;
         }
 
         body {
@@ -61,29 +65,17 @@
         }
 
         .glass {
-            background: var(--glass-bg);
-            background-image: var(--glass-gradient, linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 100%));
-            backdrop-filter: blur(16px) saturate(120%);
-            -webkit-backdrop-filter: blur(16px) saturate(120%);
+            background-color: var(--card-bg);
             border: 1px solid var(--border-color);
-            box-shadow: var(--glass-shadow, 0 8px 32px 0 rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.4));
+            box-shadow: var(--card-shadow);
             transition: all 0.2s ease;
         }
 
         .game-card {
-            background: var(--bg-color);
-            background-image: var(--card-gradient, linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%));
-            box-shadow: var(--card-shadow), var(--card-inset, inset 0 1px 2px rgba(255, 255, 255, 0.6));
+            background-color: var(--card-bg);
+            box-shadow: var(--card-shadow);
             transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), background-color 0.05s linear;
             border: 1px solid var(--border-color);
-        }
-
-        .dark-mode .glass,
-        .dark-mode .game-card {
-            --glass-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
-            --card-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
-            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-            --card-inset: inset 0 1px 1px rgba(255, 255, 255, 0.1);
         }
 
         .state-waiting,
@@ -181,9 +173,8 @@
 
         /* Bloom Effect */
         .bloom {
-            box-shadow: 0 0 15px -2px var(--ready-color), 0 0 30px -5px var(--ready-color);
-            opacity: 0.9;
-            border-color: rgba(255, 255, 255, 0.2) !important;
+            background-color: var(--ready-color) !important;
+            color: white !important;
         }
 
         .tile-active {
@@ -410,7 +401,7 @@
     </div>
 
     <div id="main-container"
-        class="max-w-5xl w-full flex-1 flex flex-col relative z-10 transition-opacity duration-700 mx-auto mt-24 mb-12">
+        class="max-w-7xl w-full flex-1 flex flex-col relative z-10 transition-opacity duration-700 mx-auto mt-16 mb-12">
         <header class="text-center h-6 hidden">
             <h1 id="lab-title"
                 class="text-xs font-black tracking-[0.4em] uppercase text-slate-400 mb-1 transition-opacity duration-300">
@@ -423,7 +414,7 @@
                 class="fixed inset-0 bg-white opacity-0 pointer-events-none z-50 transition-opacity duration-75"></div>
 
             <div id="universal-hud"
-                class="absolute top-0 inset-x-0 flex justify-between px-12 pt-16 pointer-events-none opacity-0 transition-opacity duration-300 z-50">
+                class="absolute top-0 inset-x-0 flex justify-between px-4 pt-0 pointer-events-none opacity-0 transition-opacity duration-300 z-50">
                 <div id="hud-left" class="flex flex-col">
                     <span id="hud-left-label"
                         class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">---</span>
@@ -616,7 +607,7 @@
                         </div>
 
                         <div id="type-config-vals"
-                            class="flex gap-1 text-xs font-bold uppercase tracking-widest text-slate-500 bg-black/5 dark:bg-white/5 rounded-full p-1 border border-black/5 dark:border-white/5 shadow-inner">
+                            class="flex gap-1 text-xs font-bold uppercase tracking-widest text-slate-500 rounded-full p-1 border border-[var(--input-border)] bg-[var(--input-bg)] shadow-inner">
                             <button
                                 class="type-len-btn px-4 py-1.5 rounded-full text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700 shadow-sm transition-all"
                                 data-len="15">15</button>
@@ -1150,7 +1141,6 @@
                 this.ctx.arc(this.target.x, this.target.y, this.target.r, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.shadowBlur = 0; this.ctx.globalAlpha = 1;
-                $('track-acc-live').innerText = Math.round(this.score) + 'ms';
                 if (remaining <= 0) {
                     this.state = 'RESULT';
                     globalScores.tracking.scores.push(this.score);
@@ -1495,7 +1485,7 @@
                 screen.innerHTML = `
                     <h2 class="text-5xl font-light tracking-tight mb-3">${viewConfig[this.id].title}</h2>
                     <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">${subtitles[this.id]}</p>
-                    <div class="flex items-center gap-4 mb-8 bg-black/5 dark:bg-white/5 rounded-full p-1 border border-black/5 dark:border-white/5 shadow-inner">
+                    <div class="flex items-center gap-4 mb-8 rounded-full p-1 border shadow-inner" style="background-color: var(--input-bg); border-color: var(--border-color);">
                         <button class="${LVL_BTN}" id="${this.prefix}-lvl-dec">-</button>
                         <div class="text-xs font-bold uppercase tracking-widest text-slate-500 w-20 text-center" id="${this.prefix}-lvl-disp">Level 1</div>
                         <button class="${LVL_BTN}" id="${this.prefix}-lvl-inc">+</button>
